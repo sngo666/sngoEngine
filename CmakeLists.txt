@@ -1,0 +1,86 @@
+cmake_minimum_required(VERSION 3.5)
+
+set(PROJECT_NAME sngoEngine)
+set(fmt_DIR "D:/Library/fmt_10.2.1/build")
+set(glfw_DIR "D:/Library/glfw_3.4/build/src")
+set(eigen_DIR "D:/Library/eigen_3.4.0/build")
+set(Vk_DIR "D:/Library/Vulkan")
+
+project(
+  ${PROJECT_NAME}
+  VERSION 0.1
+  LANGUAGES CXX C ASM)
+
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_BUILD_TYPE "Debug")
+add_compile_options(-DBUILD_SHARED_LIBS=ON)
+configure_file(configuration/root_directory.in ../include/root_directory.h)
+
+find_package(fmt REQUIRED)
+find_package(eigen3 REQUIRED)
+find_package(glm REQUIRED)
+find_package(Vulkan REQUIRED)
+find_package(glslang REQUIRED)
+# message(glslang)
+
+add_subdirectory(D:/Library/glfw_3.4 D:/Library/glfw_3.4/build)
+
+set(LIBS fmt eigen3 glfw3 glm Vulkan)
+#for clangd
+
+include_directories("${fmt_DIR}/include")
+include_directories("${glfw_DIR}/include")
+include_directories("${eigen_DIR}")
+include_directories("${Vk_DIR}/include")
+include_directories("./include/stb")
+
+
+#for clangd stl includes
+include_directories("D:/Library/MSYS2/mingw64/include/c++/13.2.0")
+include_directories("D:/Library/MSYS2/mingw64/include/c++/13.2.0/x86_64-w64-mingw32")
+#project including
+# include_directories("./src")
+include_directories("./include")
+
+
+file(GLOB SOURCES *.cpp 
+                  src/*.cpp 
+                  src/Core/*.cpp
+                  src/Core/Source/Image/*.cpp
+                  src/Core/Source/Model/*.cpp
+                  src/Core/Source/Buffer/*.cpp
+                  src/Core/Source/SwapChain/*.cpp
+                  src/Core/Source/Pipeline/*.cpp
+                  src/Core/Instance/*.cpp
+                  src/Core/Render/*.cpp
+                  src/Core/Device/*.cpp
+                  src/Core/Utils/*.cpp
+                  src/Core/Utils/ColorSpace/*.cpp
+                  src/Core/Utils/PBRT/*.cpp
+                  src/Core/Signalis/*.cpp
+                  src/GLFWEXT/*.cpp
+                  src/IMGUI/include/*.cpp
+                  src/IMGUI/*.cpp
+                  )
+                  
+file(GLOB HEADERS *.h include/*.h include/*.hpp src/*.h)
+file(GLOB LINKS libs/*.a libs/*.so D:/Library/glslang/glslang/build/install/lib/*.a)
+
+message(${PROJECT_SOURCE_DIR})
+
+add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
+
+target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
+target_link_libraries(${PROJECT_NAME} PRIVATE fmt::fmt)
+target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
+target_link_libraries(${PROJECT_NAME} PUBLIC glslang::glslang glslang::SPIRV glslang::glslang-default-resource-limits)
+
+
+
+
+# set_target_properties(
+#   ${PROJECT_NAME}
+#   PROPERTIES WIN32_EXECUTABLE TRUE)
