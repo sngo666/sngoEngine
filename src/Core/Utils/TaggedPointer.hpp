@@ -37,6 +37,8 @@ class TaggedPointer
 
   TaggedPointer& operator=(const TaggedPointer& t)
   {
+    assert(&t == this);
+
     bits = t.bits;
     return *this;
   }

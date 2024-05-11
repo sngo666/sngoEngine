@@ -8,6 +8,10 @@
 namespace SngoEngine::Core::Source::Image
 {
 
+//===========================================================================================================================
+// EngineSampler
+//===========================================================================================================================
+
 VkSamplerCreateInfo Get_Default_Sampler(const Device::LogicalDevice::EngineDevice* device,
                                         float mip_level = 0.0f);
 
@@ -38,7 +42,7 @@ struct EngineSampler
  private:
   void creator(const Device::LogicalDevice::EngineDevice* _device,
                VkSamplerCreateInfo& _sampler_info,
-               const VkAllocationCallbacks* alloc);
+               const VkAllocationCallbacks* alloc = nullptr);
   const VkAllocationCallbacks* Alloc{};
 };
 }  // namespace SngoEngine::Core::Source::Image

@@ -4,6 +4,16 @@
 #include <winnt.h>
 
 #include <cstdint>
+#include <stdexcept>
+#include <string>
+#include <type_traits>
+#include <unordered_map>
+
+#include "fmt/core.h"
+#include "ktx.h"
+#include "ktxvulkan.h"
+#include "src/Core/Source/Image/Sampler.hpp"
+#include "src/Core/Utils/Utils.hpp"
 
 #define STB_IMAGE_STATIC
 #define STB_IMAGE_IMPLEMENTATION
@@ -128,6 +138,27 @@ void SngoEngine::Core::Source::Image::Copy_Buffer2Image(
                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                          1,
                          &region);
+
+  once_commandbuffer.end_buffer();
+}
+
+void SngoEngine::Core::Source::Image::Copy_Buffer2Image(
+    const Device::LogicalDevice::EngineDevice* device,
+    VkCommandPool _command_pool,
+    VkBuffer buffer,
+    VkImage img,
+    const std::vector<VkBufferImageCopy>& regions)
+
+{
+  Core::Source::Buffer::EngineOnceCommandBuffer once_commandbuffer{
+      device, _command_pool, device->graphics_queue};
+
+  vkCmdCopyBufferToImage(once_commandbuffer.command_buffer,
+                         buffer,
+                         img,
+                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                         regions.size(),
+                         regions.data());
 
   once_commandbuffer.end_buffer();
 }
@@ -287,24 +318,9 @@ SngoEngine::Core::Source::Image::Generate_BufferMemoryAllocate_Info(
               device->pPD->physical_device, memRequirements.memoryTypeBits, properties)};
 }
 
-// SngoEngine::Core::Source::Image::EngineImage::EngineImage(
-//     const Device::LogicalDevice::EngineDevice* _device,
-//     Data::ImageCreate_Info _image_info,
-//     VkMemoryPropertyFlags _properties,
-//     const VkAllocationCallbacks* alloc)
-//     : SngoEngine::Core::Source::Image::EngineImage()
-// {
-//   creator(_device, _image_info, _properties, alloc);
-// }
-
-// void SngoEngine::Core::Source::Image::EngineImage::operator()(
-//     const Device::LogicalDevice::EngineDevice* _device,
-//     Data::ImageCreate_Info _image_info,
-//     VkMemoryPropertyFlags _properties,
-//     const VkAllocationCallbacks* alloc)
-// {
-//   creator(_device, _image_info, _properties, alloc);
-// }
+//===========================================================================================================================
+// EngineImage
+//===========================================================================================================================
 
 void SngoEngine::Core::Source::Image::EngineImage::creator(
     const Device::LogicalDevice::EngineDevice* _device,
@@ -349,80 +365,219 @@ void SngoEngine::Core::Source::Image::EngineImage::destroyer()
     }
 }
 
-void SngoEngine::Core::Source::Image::EngineTextureImage::creator(
-    const Device::LogicalDevice::EngineDevice* _device,
-    const Buffer::EngineCommandPool* _pool,
-    const std::string& texture_file,
-    const VkAllocationCallbacks* alloc)
+//===========================================================================================================================
+// EngineTextureImage
+//===========================================================================================================================
+
+ktxResult SngoEngine::Core::Source::Image::loadKTXFile(const std::string& filename,
+                                                       ktxTexture** target)
 {
-  creator(_device, _pool->command_pool, texture_file, alloc);
+  ktxResult result = KTX_SUCCESS;
+  if (!SngoEngine::Core::Utils::isFile_Exists(filename))
+    {
+      throw std::runtime_error(
+          "Could not load texture from " + filename
+          + "\n\nMake sure the assets submodule has been checked out and is up-to-date.");
+    }
+  result = ktxTexture_CreateFromNamedFile(
+      filename.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, target);
+  return result;
 }
 
 void SngoEngine::Core::Source::Image::EngineTextureImage::creator(
     const Device::LogicalDevice::EngineDevice* _device,
     VkCommandPool _pool,
     const std::string& texture_file,
-    const VkAllocationCallbacks* alloc)
+    const VkAllocationCallbacks* alloc,
+    bool using_stage,
+    VkFormat _format,
+    VkImageUsageFlags _usage,
+    VkImageLayout _layout)
 {
-  int tex_width{}, tex_height{}, tex_channel{};
-  stbi_uc* pixels{
-      stbi_load(texture_file.c_str(), &tex_width, &tex_height, &tex_channel, STBI_rgb_alpha)};
+  destroyer();
+  Alloc = alloc;
+  device = _device;
 
-  extent = {static_cast<uint32_t>(tex_width), static_cast<uint32_t>(tex_height)};
-
-  if (!pixels)
+  auto ext_name{Utils::GetFile_Extension(texture_file)};
+  if (ext_name.empty())
     {
-      throw std::runtime_error("failed to load texture img!");
+      throw std::runtime_error("wrong extension name in file " + texture_file);
     }
+  if (ext_name == "jpg" || ext_name == "png")
+    {
+      int tex_width{}, tex_height{}, tex_channel{};
+      stbi_uc* pixels{
+          stbi_load(texture_file.c_str(), &tex_width, &tex_height, &tex_channel, STBI_rgb_alpha)};
 
-  creator(_device,
-          _pool,
-          EnginePixelData{
-              pixels,
-              static_cast<uint32_t>(tex_width),
-              static_cast<uint32_t>(tex_height),
-              static_cast<uint32_t>(tex_channel),
-          },
-          alloc);
+      extent = {static_cast<uint32_t>(tex_width), static_cast<uint32_t>(tex_height)};
+      mip_levels = 1;
 
-  stbi_image_free(pixels);
+      if (!pixels)
+        {
+          throw std::runtime_error("failed to load texture img!");
+        }
+      if (using_stage)
+        {
+          CreateWith_Staging(_device,
+                             _pool,
+                             EnginePixelData{
+                                 pixels,
+                                 static_cast<uint32_t>(tex_width),
+                                 static_cast<uint32_t>(tex_height),
+                                 static_cast<uint64_t>(tex_width * tex_height * 4),
+                             },
+                             _format,
+                             _usage,
+                             _layout,
+                             {},
+                             Alloc);
+        }
+      else
+        {
+          CreateWithout_Staging(_device,
+                                _pool,
+                                EnginePixelData{
+                                    pixels,
+                                    static_cast<uint32_t>(tex_width),
+                                    static_cast<uint32_t>(tex_height),
+                                    static_cast<uint64_t>(tex_width * tex_height * 4),
+                                },
+                                _format,
+                                _usage,
+                                _layout,
+                                Alloc);
+        }
+      stbi_image_free(pixels);
+    }
+  else if (ext_name == "ktx")
+    {
+      ktxTexture* ktxTexture;
+      ktxResult result = loadKTXFile(texture_file, &ktxTexture);
+      assert(result == KTX_SUCCESS);
+
+      extent = {ktxTexture->baseWidth, ktxTexture->baseHeight};
+      mip_levels = ktxTexture->numLevels;
+
+      ktx_uint8_t* ktxTexture_Data = ktxTexture_GetData(ktxTexture);
+      ktx_size_t ktxTextureSize = ktxTexture_GetSize(ktxTexture);
+
+      std::vector<VkBufferImageCopy> bufferCopyRegions;
+
+      for (uint32_t i = 0; i < mip_levels; i++)
+        {
+          ktx_size_t offset;
+          KTX_error_code result = ktxTexture_GetImageOffset(ktxTexture, i, 0, 0, &offset);
+          assert(result == KTX_SUCCESS);
+
+          VkBufferImageCopy bufferCopyRegion = {};
+          bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+          bufferCopyRegion.imageSubresource.mipLevel = i;
+          bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
+          bufferCopyRegion.imageSubresource.layerCount = 1;
+          bufferCopyRegion.imageExtent.width = std::max(1u, ktxTexture->baseWidth >> i);
+          bufferCopyRegion.imageExtent.height = std::max(1u, ktxTexture->baseHeight >> i);
+          bufferCopyRegion.imageExtent.depth = 1;
+          bufferCopyRegion.bufferOffset = offset;
+
+          bufferCopyRegions.push_back(bufferCopyRegion);
+        }
+
+      if (using_stage)
+        {
+          CreateWith_Staging(_device,
+                             _pool,
+                             EnginePixelData{
+                                 ktxTexture_Data,
+                                 extent.width,
+                                 extent.height,
+                                 ktxTextureSize,
+                             },
+                             _format,
+                             _usage,
+                             _layout,
+                             bufferCopyRegions,
+                             Alloc);
+        }
+      else
+        {
+          CreateWithout_Staging(_device,
+                                _pool,
+                                EnginePixelData{
+                                    ktxTexture_Data,
+                                    extent.width,
+                                    extent.height,
+                                    ktxTextureSize,
+                                },
+                                _format,
+                                _usage,
+                                _layout,
+                                Alloc);
+        }
+
+      ktxTexture_Destroy(ktxTexture);
+    }
 }
 
 void SngoEngine::Core::Source::Image::EngineTextureImage::creator(
     const Device::LogicalDevice::EngineDevice* _device,
     VkCommandPool _pool,
     EnginePixelData pixel_data,
-    const VkAllocationCallbacks* alloc)
+    const VkAllocationCallbacks* alloc,
+    bool using_stage,
+    VkFormat _format,
+    VkImageUsageFlags _usage,
+    VkImageLayout dst_layout)
 {
-  assert(pixel_data.is_available());
   destroyer();
   Alloc = alloc;
   device = _device;
   extent = {pixel_data.width, pixel_data.height};
 
-  auto subresourceRange{Data::DEFAULT_COLOR_IMAGE_SUBRESOURCE_INFO};
+  if (using_stage)
+    {
+      CreateWith_Staging(_device, _pool, pixel_data, _format, _usage, dst_layout, {}, Alloc);
+    }
+  else
+    {
+      CreateWithout_Staging(_device, _pool, pixel_data, _format, _usage, dst_layout, Alloc);
+    }
+}
 
-  VkDeviceSize img_size{static_cast<VkDeviceSize>(pixel_data.width * pixel_data.height * 4)};
+// creator for jpg/png
+void SngoEngine::Core::Source::Image::EngineTextureImage::CreateWith_Staging(
+    const Device::LogicalDevice::EngineDevice* _device,
+    VkCommandPool _pool,
+    EnginePixelData pixel_data,
+    VkFormat _format,
+    VkImageUsageFlags _usage,
+    VkImageLayout dst_layout,
+    const std::vector<VkBufferImageCopy>& regions,
+    const VkAllocationCallbacks* alloc)
+{
+  assert(pixel_data.is_available());
+
+  auto subresourceRange{Data::DEFAULT_COLOR_IMAGE_SUBRESOURCE_INFO};
+  auto used_format{_format};
+
   Buffer::EngineBuffer staging_buffer{
       device,
-      Data::BufferCreate_Info(img_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT),
+      Data::BufferCreate_Info(pixel_data.size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT),
       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
       Alloc};
 
   void* data;
-  vkMapMemory(device->logical_device, staging_buffer.buffer_memory, 0, img_size, 0, &data);
-  memcpy(data, pixel_data.data, static_cast<size_t>(img_size));
+  vkMapMemory(device->logical_device, staging_buffer.buffer_memory, 0, pixel_data.size, 0, &data);
+  memcpy(data, pixel_data.data, pixel_data.size);
   vkUnmapMemory(device->logical_device, staging_buffer.buffer_memory);
 
   EngineImage img{
       device,
       Data::ImageCreate_Info{
-          VK_FORMAT_R8G8B8A8_SRGB,
+          used_format,
           {static_cast<uint32_t>(pixel_data.width), static_cast<uint32_t>(pixel_data.height), 1},
           VK_IMAGE_TILING_OPTIMAL,
-          VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
-
-      },
+          _usage,
+          mip_levels},
       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT};
 
   Transition_ImageLayout(device,
@@ -431,29 +586,100 @@ void SngoEngine::Core::Source::Image::EngineTextureImage::creator(
                          subresourceRange,
                          VK_IMAGE_LAYOUT_UNDEFINED,
                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+  if (regions.empty())
+    {
+      Copy_Buffer2Image(device, _pool, staging_buffer.buffer, img.image, extent);
+    }
+  else
+    {
+      Copy_Buffer2Image(device, _pool, staging_buffer.buffer, img.image, regions);
+    }
 
-  Copy_Buffer2Image(device, _pool, staging_buffer.buffer, img.image, {extent});
-
-  Transition_ImageLayout(device,
-                         _pool,
-                         img.image,
-                         subresourceRange,
-                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+  Transition_ImageLayout(
+      device, _pool, img.image, subresourceRange, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dst_layout);
 
   image = img.image;
   image_memory = img.image_memory;
 
-  Data::ImageViewCreate_Info _info{image, VK_FORMAT_R8G8B8A8_SRGB, subresourceRange};
+  // create image view
+  {
+    Data::ImageViewCreate_Info _info{image, used_format, subresourceRange};
+    _info.subresourceRange.levelCount = mip_levels;
+    view(device, _info, Alloc);
+  }
 
-  if (vkCreateImageView(device->logical_device, &_info, Alloc, &view) != VK_SUCCESS)
-    {
-      throw std::runtime_error("failed to create texture image view!");
-    }
+  // create image sampler
+  {
+    auto sampler_info{Get_Default_Sampler(device, static_cast<float>(mip_levels))};
+    sampler(device, sampler_info, Alloc);
+  }
 
   img.image = VK_NULL_HANDLE;
   img.image_memory = VK_NULL_HANDLE;
   staging_buffer.destroyer();
+}
+
+void SngoEngine::Core::Source::Image::EngineTextureImage::CreateWithout_Staging(
+    const Device::LogicalDevice::EngineDevice* _device,
+    VkCommandPool _pool,
+    EnginePixelData pixel_data,
+    VkFormat _format,
+    VkImageUsageFlags _usage,
+    VkImageLayout dst_layout,
+    const VkAllocationCallbacks* alloc)
+{
+  assert(pixel_data.is_available());
+  destroyer();
+  Alloc = alloc;
+  device = _device;
+  extent = {pixel_data.width, pixel_data.height};
+
+  auto used_format{_format};
+  mip_levels = 1;
+  VkMemoryRequirements req{};
+  vkGetImageMemoryRequirements(device->logical_device, image, &req);
+  auto subresourceRange{Data::DEFAULT_COLOR_IMAGE_SUBRESOURCE_INFO};
+
+  EngineImage img{
+      device,
+      Data::ImageCreate_Info{
+          used_format,
+          {static_cast<uint32_t>(pixel_data.width), static_cast<uint32_t>(pixel_data.height), 1},
+          VK_IMAGE_TILING_LINEAR,
+          _usage,
+          mip_levels},
+      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT};
+
+  VkImageSubresource sub_resource{};
+  sub_resource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  sub_resource.mipLevel = 0;
+
+  VkSubresourceLayout subres_layout;
+  void* data;
+
+  vkGetImageSubresourceLayout(device->logical_device, img.image, &sub_resource, &subres_layout);
+  Utils::Vk_Exception(vkMapMemory(device->logical_device, img.image_memory, 0, req.size, 0, &data));
+
+  Transition_ImageLayout(
+      device, _pool, img.image, subresourceRange, VK_IMAGE_LAYOUT_UNDEFINED, dst_layout);
+
+  image = img.image;
+  image_memory = img.image_memory;
+
+  {
+    Data::ImageViewCreate_Info _info{image, used_format, subresourceRange};
+    _info.subresourceRange.levelCount = mip_levels;
+    view(device, _info, Alloc);
+  }
+
+  // create image sampler
+  {
+    auto sampler_info{Get_Default_Sampler(device, static_cast<float>(mip_levels))};
+    sampler(device, sampler_info, Alloc);
+  }
+
+  img.image = VK_NULL_HANDLE;
+  img.image_memory = VK_NULL_HANDLE;
 }
 
 void SngoEngine::Core::Source::Image::EngineTextureImage::destroyer()

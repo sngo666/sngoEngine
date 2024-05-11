@@ -5,6 +5,10 @@
 
 #include <cstddef>
 
+//===========================================================================================================================
+// EngineImageView
+//===========================================================================================================================
+
 void SngoEngine::Core::Source::ImageView::EngineImageView::creator(
     const Device::LogicalDevice::EngineDevice* _device,
     Data::ImageViewCreate_Info _info,
@@ -20,6 +24,10 @@ void SngoEngine::Core::Source::ImageView::EngineImageView::creator(
       throw std::runtime_error("failed to create texture image view!");
     }
 }
+
+//===========================================================================================================================
+// EngineImageViews
+//===========================================================================================================================
 
 void SngoEngine::Core::Source::ImageView::EngineImageViews::creator(
     const Device::LogicalDevice::EngineDevice* _device,

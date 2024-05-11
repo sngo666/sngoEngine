@@ -27,7 +27,9 @@ void glob_file(const std::string& direcctory,
                const std::string& format,
                std::vector<std::string>& files);
 FILE* FOpenRead(const std::string& filename);
-std::vector<float> Read_FloatFile(std::string filename);
+std::vector<float> Read_FloatFile(const std::string& filename);
+std::string GetFile_Extension(const std::string& filename);
+bool isFile_Exists(const std::string& filename);
 
 void Vk_Exception(VkResult res);
 bool Atof(std::string_view str, float* ptr);

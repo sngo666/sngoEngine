@@ -24,6 +24,7 @@ find_package(eigen3 REQUIRED)
 find_package(glm REQUIRED)
 find_package(Vulkan REQUIRED)
 find_package(glslang REQUIRED)
+find_package(Ktx REQUIRED)
 # message(glslang)
 
 add_subdirectory(D:/Library/glfw_3.4 D:/Library/glfw_3.4/build)
@@ -36,7 +37,7 @@ include_directories("${glfw_DIR}/include")
 include_directories("${eigen_DIR}")
 include_directories("${Vk_DIR}/include")
 include_directories("./include/stb")
-
+include_directories("D:/Library/KTX-Software/include")
 
 #for clangd stl includes
 include_directories("D:/Library/MSYS2/mingw64/include/c++/13.2.0")
@@ -77,6 +78,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
 target_link_libraries(${PROJECT_NAME} PRIVATE fmt::fmt)
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
 target_link_libraries(${PROJECT_NAME} PUBLIC glslang::glslang glslang::SPIRV glslang::glslang-default-resource-limits)
+target_link_libraries(${PROJECT_NAME} PUBLIC KTX::ktx)
+
 
 
 

@@ -13,12 +13,9 @@
 namespace SngoEngine::Core::Source::Buffer
 {
 
-VkCommandBuffer Get_OneTimeSubimit_CommandBuffer(VkDevice logical_device,
-                                                 VkCommandPool command_pool);
-void End_OneTimeSubimit_CommandBuffer(VkDevice logical_device,
-                                      VkCommandPool command_pool,
-                                      VkCommandBuffer command_buffer,
-                                      VkQueue queue);
+//===========================================================================================================================
+// EngineCommandPool
+//===========================================================================================================================
 
 struct EngineCommandPool
 {
@@ -48,6 +45,10 @@ struct EngineCommandPool
                const VkAllocationCallbacks* alloc);
   const VkAllocationCallbacks* Alloc{};
 };
+
+//===========================================================================================================================
+// EngineCommandPools
+//===========================================================================================================================
 
 struct EngineCommandPools
 {
@@ -91,6 +92,17 @@ struct EngineCommandPools
   const VkAllocationCallbacks* Alloc{};
 };
 
+//===========================================================================================================================
+// EngineOnceCommandBuffer
+//===========================================================================================================================
+
+VkCommandBuffer Get_OneTimeSubimit_CommandBuffer(VkDevice logical_device,
+                                                 VkCommandPool command_pool);
+void End_OneTimeSubimit_CommandBuffer(VkDevice logical_device,
+                                      VkCommandPool command_pool,
+                                      VkCommandBuffer command_buffer,
+                                      VkQueue queue);
+
 struct EngineOnceCommandBuffer
 {
   EngineOnceCommandBuffer() = default;
@@ -122,6 +134,10 @@ struct EngineOnceCommandBuffer
   VkQueue queue;
 };
 
+//===========================================================================================================================
+// EngineCommandBuffer
+//===========================================================================================================================
+
 struct EngineCommandBuffer
 {
   EngineCommandBuffer() = default;
@@ -142,9 +158,15 @@ struct EngineCommandBuffer
   const Device::LogicalDevice::EngineDevice* device{};
 
  private:
-  void creator(const Device::LogicalDevice::EngineDevice* _device, VkCommandPool _command_pool);
+  void creator(const Device::LogicalDevice::EngineDevice* _device,
+               VkCommandPool _command_pool,
+               VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
   VkCommandPool command_pool{};
 };
+
+//===========================================================================================================================
+// EngineCommandBuffers
+//===========================================================================================================================
 
 struct EngineCommandBuffers
 {
@@ -169,7 +191,7 @@ struct EngineCommandBuffers
   VkCommandBuffer* data();
   void resize(size_t t);
   size_t size();
-  void recreate_elements(size_t n);
+  void recreate(size_t n, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
   std::vector<VkCommandBuffer>::iterator begin();
   std::vector<VkCommandBuffer>::iterator end();
 
@@ -179,7 +201,8 @@ struct EngineCommandBuffers
  private:
   void creator(const Device::LogicalDevice::EngineDevice* _device,
                VkCommandPool _command_pool,
-               size_t _size);
+               size_t _size,
+               VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
   VkCommandPool command_pool{};
 };
 

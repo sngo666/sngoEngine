@@ -349,9 +349,9 @@ int SngoEngine::Imgui::ImguiApplication::init()
     }
   check_vk_result(vkDeviceWaitIdle(gui_Device.logical_device));
 
-  gui_ImageAcquiredSemaphores.destrpyer();
-  gui_RenderCompleteSemaphores.destrpyer();
-  gui_SwapChain.CleanUp_Self();
+  gui_ImageAcquiredSemaphores.destroyer();
+  gui_RenderCompleteSemaphores.destroyer();
+  // gui_SwapChain.CleanUp_Self();
   fmt::println("destory end");
 
   ImGui_ImplVulkan_Shutdown();
@@ -630,7 +630,7 @@ void SngoEngine::Imgui::ImguiApplication::update_uniform_buffer(uint32_t current
       glm::perspective(glm::radians(45.0f),
                        (float)gui_SwapChain.extent.width / (float)gui_SwapChain.extent.height,
                        0.1f,
-                       10.0f);
+                       100.0f);
 
   ubo.proj[1][1] *= -1;
 

@@ -101,6 +101,10 @@ std::vector<VkCommandPool>::iterator SngoEngine::Core::Source::Buffer::EngineCom
   return command_pools.end();
 }
 
+//===========================================================================================================================
+// EngineOnceCommandBuffer
+//===========================================================================================================================
+
 VkCommandBuffer SngoEngine::Core::Source::Buffer::Get_OneTimeSubimit_CommandBuffer(
     VkDevice logical_device,
     VkCommandPool command_pool)
@@ -172,6 +176,10 @@ void SngoEngine::Core::Source::Buffer::EngineOnceCommandBuffer::creator(
   command_buffer = Get_OneTimeSubimit_CommandBuffer(device->logical_device, command_pool);
 }
 
+//===========================================================================================================================
+// EngineCommandBuffer
+//===========================================================================================================================
+
 SngoEngine::Core::Source::Buffer::EngineCommandBuffer::EngineCommandBuffer(
     const Device::LogicalDevice::EngineDevice* _device,
     VkCommandPool _command_pool)
@@ -189,7 +197,8 @@ void SngoEngine::Core::Source::Buffer::EngineCommandBuffer::operator()(
 
 void SngoEngine::Core::Source::Buffer::EngineCommandBuffer::creator(
     const Device::LogicalDevice::EngineDevice* _device,
-    VkCommandPool _command_pool)
+    VkCommandPool _command_pool,
+    VkCommandBufferLevel level)
 {
   if (command_buffer != VK_NULL_HANDLE)
     {
@@ -200,13 +209,16 @@ void SngoEngine::Core::Source::Buffer::EngineCommandBuffer::creator(
   command_pool = _command_pool;
 
   VkCommandBufferAllocateInfo command_buffers_info{
-      Data::CommandBufferAlloc_Info(command_pool, VK_COMMAND_BUFFER_LEVEL_PRIMARY)};
+      Data::CommandBufferAlloc_Info(command_pool, level)};
   if (vkAllocateCommandBuffers(device->logical_device, &command_buffers_info, &command_buffer)
       != VK_SUCCESS)
     {
       throw std::runtime_error("failed to create command buffer!");
     }
 }
+//===========================================================================================================================
+// EngineCommandBuffers
+//===========================================================================================================================
 
 SngoEngine::Core::Source::Buffer::EngineCommandBuffers::EngineCommandBuffers(
     const Device::LogicalDevice::EngineDevice* _device,
@@ -228,7 +240,8 @@ void SngoEngine::Core::Source::Buffer::EngineCommandBuffers::operator()(
 void SngoEngine::Core::Source::Buffer::EngineCommandBuffers::creator(
     const Device::LogicalDevice::EngineDevice* _device,
     VkCommandPool _command_pool,
-    size_t _size)
+    size_t _size,
+    VkCommandBufferLevel level)
 {
   if (command_pool != VK_NULL_HANDLE)
     vkFreeCommandBuffers(device->logical_device, command_pool, _size, command_buffers.data());
@@ -237,7 +250,7 @@ void SngoEngine::Core::Source::Buffer::EngineCommandBuffers::creator(
   command_buffers.resize(_size);
 
   VkCommandBufferAllocateInfo command_buffers_info{
-      Data::CommandBufferAlloc_Info(command_pool, VK_COMMAND_BUFFER_LEVEL_PRIMARY)};
+      Data::CommandBufferAlloc_Info(command_pool, level)};
   if (vkAllocateCommandBuffers(
           device->logical_device, &command_buffers_info, command_buffers.data())
       != VK_SUCCESS)
@@ -277,10 +290,11 @@ std::vector<VkCommandBuffer>::iterator SngoEngine::Core::Source::Buffer::EngineC
   return command_buffers.end();
 }
 
-void SngoEngine::Core::Source::Buffer::EngineCommandBuffers::recreate_elements(size_t n)
+void SngoEngine::Core::Source::Buffer::EngineCommandBuffers::recreate(size_t n,
+                                                                      VkCommandBufferLevel level)
 {
   VkCommandBufferAllocateInfo command_buffers_info{
-      Data::CommandBufferAlloc_Info(command_pool, VK_COMMAND_BUFFER_LEVEL_PRIMARY)};
+      Data::CommandBufferAlloc_Info(command_pool, level)};
   if (vkAllocateCommandBuffers(device->logical_device, &command_buffers_info, &command_buffers[n])
       != VK_SUCCESS)
     {

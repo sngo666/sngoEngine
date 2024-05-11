@@ -3,6 +3,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include <iostream>
+#include <stdexcept>
 
 #include "src/Core/Data.h"
 #include "src/Core/Device/LogicalDevice.hpp"

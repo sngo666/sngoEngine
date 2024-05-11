@@ -25,7 +25,7 @@ struct EngineSemaphores
   U& operator=(U&) = delete;
   ~EngineSemaphores()
   {
-    destrpyer();
+    destroyer();
   }
 
   VkSemaphore& operator[](size_t t);
@@ -34,7 +34,7 @@ struct EngineSemaphores
   size_t size();
   std::vector<VkSemaphore>::iterator begin();
   std::vector<VkSemaphore>::iterator end();
-  void destrpyer();
+  void destroyer();
 
   std::vector<VkSemaphore> semaphores;
   const Device::LogicalDevice::EngineDevice* device{};

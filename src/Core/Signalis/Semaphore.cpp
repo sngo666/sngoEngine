@@ -76,7 +76,7 @@ std::vector<VkSemaphore>::iterator SngoEngine::Core::Siganlis::EngineSemaphores:
   return semaphores.end();
 }
 
-void SngoEngine::Core::Siganlis::EngineSemaphores::destrpyer()
+void SngoEngine::Core::Siganlis::EngineSemaphores::destroyer()
 {
   for (auto& sema : semaphores)
     {

@@ -174,7 +174,7 @@ struct EngineObjModel
     for (int i = 0; i < _size; i++)
       {
         _img_infos[i] = VkDescriptorImageInfo{texture_samplers[i].sampler,
-                                              texture_imgs[i].view,
+                                              texture_imgs[i].view.image_view,
                                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
       }
 
@@ -269,7 +269,6 @@ void gltf_LoadImage(const SngoEngine::Core::Device::LogicalDevice::EngineDevice*
                     VkCommandPool _pool,
                     tinygltf::Model& input,
                     std::vector<Image::EngineTextureImage>& images,
-                    std::vector<Image::EngineSampler>& samplers,
                     const VkAllocationCallbacks* alloc = nullptr);
 
 void gltf_LoadTextures(tinygltf::Model& input,
@@ -318,7 +317,6 @@ struct EngineGltfModel
   std::vector<uint32_t> tex_index;
   std::vector<GltfMaterial> materials;
   std::vector<GltfNode*> nodes;
-  std::vector<Image::EngineSampler> img_samplers;
   Descriptor::EngineDescriptorPool descriptor_pool{};
 
   struct
@@ -360,16 +358,12 @@ struct EngineGltfModel
     tinygltf::TinyGLTF gltf_context;
     std::string error, warning;
 
-#if defined(__ANDROID__)
-    tinygltf::asset_manager = androidApp->activity->assetManager;
-#endif
-
     if (!gltf_context.LoadASCIIFromFile(&gltf_input, &error, &warning, gltf_file))
       {
         throw std::runtime_error("[err] load gltf file " + gltf_file + " failed!");
       }
 
-    gltf_LoadImage(device, _pool->command_pool, gltf_input, imgs, img_samplers, Alloc);
+    gltf_LoadImage(device, _pool->command_pool, gltf_input, imgs, Alloc);
     gltf_LoadTextures(gltf_input, imgs, tex_index);
     gltf_LoadMaterial(gltf_input, imgs, materials);
     gltf_LoadNode(device,
@@ -400,19 +394,47 @@ struct EngineGltfModel
 
     descript_sets.img_sets(device, &layouts.texture_layout, &descriptor_pool, imgs.size());
     wirtes.resize(imgs.size());
-    std::vector<VkDescriptorImageInfo> _img_infos;
+    std::vector<std::vector<VkDescriptorImageInfo>> _img_infos(imgs.size());
     for (int i = 0; i < imgs.size(); i++)
       {
-        auto _img_info = VkDescriptorImageInfo{
-            img_samplers[i].sampler, imgs[i].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+        _img_infos[i] = {{imgs[i].sampler.sampler,
+                          imgs[i].view.image_view,
+                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}};
 
-        wirtes[i] = Descriptor::GetDescriptSet_Write({_img_info}, descript_sets.img_sets[i])[0];
+        wirtes[i] = Descriptor::GetDescriptSet_Write(_img_infos[i], descript_sets.img_sets[i])[0];
       }
+
     descript_sets.img_sets.updateWrite(wirtes);
   }
 
   std::vector<Image::EngineTextureImage> imgs;
   const VkAllocationCallbacks* Alloc{};
+};
+
+//===========================================================================================================================
+// EngineCubeMap
+//===========================================================================================================================
+
+struct EngineCubeMap
+{
+  EngineCubeMap() = default;
+  EngineCubeMap(EngineCubeMap&&) noexcept = default;
+  EngineCubeMap& operator=(EngineCubeMap&&) noexcept = default;
+  template <typename... Args>
+  explicit EngineCubeMap(const std::string& gltf_file,
+                         const Device::LogicalDevice::EngineDevice* _device,
+                         Args... args)
+  {
+    creator(gltf_file, _device, args...);
+  }
+  template <typename... Args>
+  void operator()(const std::string& gltf_file,
+                  const Device::LogicalDevice::EngineDevice* _device,
+                  Args... args)
+  {
+    creator(gltf_file, _device, args...);
+  }
+  ~EngineCubeMap() = default;
 };
 
 }  // namespace SngoEngine::Core::Source::Model

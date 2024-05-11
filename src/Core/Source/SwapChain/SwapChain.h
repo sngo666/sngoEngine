@@ -64,7 +64,7 @@ struct EngineSwapChain
   U& operator=(U&) = delete;
   ~EngineSwapChain()
   {
-    CleanUp_Self();
+    destroyer();
   }
   void Create_FrameBuffers(
       const std::vector<VkImageView>& additional_views,
@@ -77,6 +77,7 @@ struct EngineSwapChain
   std::vector<VkImage> images;
   ImageView::EngineImageViews image_views;
   Render::EngineFrameBuffers frame_buffers;
+
   VkFormat image_format{};
   VkExtent2D extent{};
   const SngoEngine::Core::Device::LogicalDevice::EngineDevice* device{};

@@ -106,7 +106,8 @@ void SngoEngine::Core::Render::EngineFrameBuffers::creator(
 void SngoEngine::Core::Render::EngineFrameBuffers::destroyer()
 {
   for (auto& buffer : frame_buffers)
-    vkDestroyFramebuffer(device->logical_device, buffer, Alloc);
+    if (!buffer)
+      vkDestroyFramebuffer(device->logical_device, buffer, Alloc);
   frame_buffers.clear();
 }
 

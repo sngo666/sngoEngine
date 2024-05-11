@@ -9,6 +9,10 @@
 
 #include "src/Core/Device/LogicalDevice.hpp"
 
+//===========================================================================================================================
+// Files Operations
+//===========================================================================================================================
+
 std::vector<char> SngoEngine::Core::Utils::read_file(const std::string& file_name)
 {
   std::ifstream file(file_name, std::ios::ate | std::ios::binary);
@@ -55,7 +59,7 @@ FILE* SngoEngine::Core::Utils::FOpenRead(const std::string& filename)
   return fopen(filename.c_str(), "rb");
 }
 
-std::vector<float> SngoEngine::Core::Utils::Read_FloatFile(std::string filename)
+std::vector<float> SngoEngine::Core::Utils::Read_FloatFile(const std::string& filename)
 {
   FILE* f = FOpenRead(filename);
   if (f == nullptr)
@@ -120,12 +124,33 @@ std::vector<float> SngoEngine::Core::Utils::Read_FloatFile(std::string filename)
   return values;
 }
 
+std::string SngoEngine::Core::Utils::GetFile_Extension(const std::string& filename)
+{
+  std::string res{};
+  res = filename.substr(filename.find_last_of('.') + 1);
+  return res;
+}
+
+bool SngoEngine::Core::Utils::isFile_Exists(const std::string& filename)
+{
+  std::ifstream f(filename.c_str());
+  return !f.fail();
+}
+
+//===========================================================================================================================
+// Vk_Exception
+//===========================================================================================================================
+
 void SngoEngine::Core::Utils::Vk_Exception(VkResult res)
 {
   if (!res)
     return;
   fprintf(stderr, "[err] vulkan result: %d\n", res);
 }
+
+//===========================================================================================================================
+// Glsl_ShaderCompiler
+//===========================================================================================================================
 
 VkShaderModule SngoEngine::Core::Utils::Glsl_ShaderCompiler(VkDevice device,
                                                             EShLanguage stage,
@@ -170,6 +195,10 @@ VkShaderModule SngoEngine::Core::Utils::Glsl_ShaderCompiler(VkDevice device,
   return shader_module;
 }
 
+//===========================================================================================================================
+// Atof
+//===========================================================================================================================
+
 bool SngoEngine::Core::Utils::Atof(std::string_view str, float* ptr)
 {
   try
@@ -195,3 +224,7 @@ bool SngoEngine::Core::Utils::Atof(std::string_view str, double* ptr)
     }
   return true;
 }
+
+//===========================================================================================================================
+//
+//===========================================================================================================================

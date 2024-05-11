@@ -29,11 +29,9 @@ void SngoEngine::Core::Source::Model::gltf_LoadImage(
     VkCommandPool _pool,
     tinygltf::Model& input,
     std::vector<Image::EngineTextureImage>& images,
-    std::vector<Image::EngineSampler>& samplers,
     const VkAllocationCallbacks* alloc)
 {
   images.resize(input.images.size());
-  samplers.resize(input.images.size());
   for (size_t i = 0; i < input.images.size(); i++)
     {
       tinygltf::Image& glTFImage = input.images[i];
@@ -67,10 +65,10 @@ void SngoEngine::Core::Source::Model::gltf_LoadImage(
                 _pool,
                 Image::EnginePixelData{buffer,
                                        static_cast<unsigned int>(glTFImage.width),
-                                       static_cast<unsigned int>(glTFImage.height)},
+                                       static_cast<unsigned int>(glTFImage.height),
+                                       bufferSize},
                 alloc);
 
-      samplers[i](device, Image::Get_Default_Sampler(device), alloc);
       if (deleteBuffer)
         {
           delete[] buffer;

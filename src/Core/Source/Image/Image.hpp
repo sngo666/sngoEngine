@@ -7,9 +7,12 @@
 #include <stdexcept>
 #include <string>
 
+#include "ktx.h"
 #include "src/Core/Data.h"
 #include "src/Core/Device/LogicalDevice.hpp"
 #include "src/Core/Source/Buffer/CommandBuffer.hpp"
+#include "src/Core/Source/Image/ImageVIew.hpp"
+#include "src/Core/Source/Image/Sampler.hpp"
 
 namespace SngoEngine::Core::Source::Image
 {
@@ -38,6 +41,11 @@ void Copy_Buffer2Image(const Device::LogicalDevice::EngineDevice* device,
                        VkBuffer buffer,
                        VkImage img,
                        VkExtent2D _extent);
+void Copy_Buffer2Image(const Device::LogicalDevice::EngineDevice* device,
+                       VkCommandPool _command_pool,
+                       VkBuffer buffer,
+                       VkImage img,
+                       const std::vector<VkBufferImageCopy>& regions);
 
 void Transition_ImageLayout(
     const Device::LogicalDevice::EngineDevice* device,
@@ -64,7 +72,7 @@ struct EnginePixelData
   unsigned char* data;
   unsigned int width;
   unsigned int height;
-  unsigned int channel;
+  uint64_t size;
 
   [[nodiscard]] bool is_available() const
   {
@@ -116,6 +124,11 @@ struct EngineImage
 // EngineTextureImage
 //===========================================================================================================================
 
+using UsingStaging_t = std::true_type;
+using UnUsingStaging_t = std::false_type;
+
+ktxResult loadKTXFile(const std::string& filename, ktxTexture** target);
+
 struct EngineTextureImage
 {
   EngineTextureImage() = default;
@@ -139,25 +152,54 @@ struct EngineTextureImage
   }
   void destroyer();
 
+  uint32_t mip_levels = 1;
   VkExtent2D extent{};
+
   VkImage image{};
-  VkImageView view{};
   VkDeviceMemory image_memory{};
+  ImageView::EngineImageView view{};
   const Device::LogicalDevice::EngineDevice* device{};
+  EngineSampler sampler{};
 
  private:
-  void creator(const Device::LogicalDevice::EngineDevice* _device,
-               const Buffer::EngineCommandPool* _pool,
-               const std::string& texture_file,
-               const VkAllocationCallbacks* alloc = nullptr);
+  // main creator
   void creator(const Device::LogicalDevice::EngineDevice* _device,
                VkCommandPool _pool,
                const std::string& texture_file,
-               const VkAllocationCallbacks* alloc = nullptr);
+               const VkAllocationCallbacks* alloc = nullptr,
+               bool using_stage = true,
+               VkFormat _format = VK_FORMAT_R8G8B8A8_SRGB,
+               VkImageUsageFlags _usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT
+                                          | VK_IMAGE_USAGE_SAMPLED_BIT,
+               VkImageLayout dst_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   void creator(const Device::LogicalDevice::EngineDevice* _device,
                VkCommandPool _pool,
                EnginePixelData pixel_data,
-               const VkAllocationCallbacks* alloc = nullptr);
+               const VkAllocationCallbacks* alloc = nullptr,
+               bool using_stage = true,
+               VkFormat _format = VK_FORMAT_R8G8B8A8_SRGB,
+               VkImageUsageFlags _usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT
+                                          | VK_IMAGE_USAGE_SAMPLED_BIT,
+               VkImageLayout dst_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+  // branch creator
+  void CreateWith_Staging(const Device::LogicalDevice::EngineDevice* _device,
+                          VkCommandPool _pool,
+                          EnginePixelData pixel_data,
+                          VkFormat _format = VK_FORMAT_R8G8B8A8_SRGB,
+                          VkImageUsageFlags _usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT
+                                                     | VK_IMAGE_USAGE_SAMPLED_BIT,
+                          VkImageLayout dst_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                          const std::vector<VkBufferImageCopy>& regions = {},
+                          const VkAllocationCallbacks* alloc = nullptr);
+  void CreateWithout_Staging(const Device::LogicalDevice::EngineDevice* _device,
+                             VkCommandPool _pool,
+                             EnginePixelData pixel_data,
+                             VkFormat _format = VK_FORMAT_R8G8B8A8_SRGB,
+                             VkImageUsageFlags _usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT
+                                                        | VK_IMAGE_USAGE_SAMPLED_BIT,
+                             VkImageLayout dst_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                             const VkAllocationCallbacks* alloc = nullptr);
   const VkAllocationCallbacks* Alloc{};
 };
 };  // namespace SngoEngine::Core::Source::Image

@@ -64,13 +64,13 @@ struct EngineFrameBuffers
   VkFramebuffer& operator[](size_t t);
   VkFramebuffer* data();
   void resize(size_t t);
-  size_t size() const;
+  [[nodiscard]] size_t size() const;
   std::vector<VkFramebuffer>::iterator begin();
   std::vector<VkFramebuffer>::iterator end();
   void destroyer();
 
   std::vector<VkFramebuffer> frame_buffers;
-  const Device::LogicalDevice::EngineDevice* device;
+  const Device::LogicalDevice::EngineDevice* device{};
 
  private:
   void creator(const SngoEngine::Core::Device::LogicalDevice::EngineDevice* _device,
@@ -79,7 +79,7 @@ struct EngineFrameBuffers
                VkExtent2D _extent,
                uint32_t _layers,
                const VkAllocationCallbacks* alloc);
-  const VkAllocationCallbacks* Alloc;
+  const VkAllocationCallbacks* Alloc{};
 };
 
 }  // namespace SngoEngine::Core::Render
