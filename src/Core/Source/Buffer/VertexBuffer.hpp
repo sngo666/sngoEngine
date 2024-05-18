@@ -43,58 +43,6 @@ namespace SngoEngine::Core::Source::Buffer
 // Vertex Struct
 //===========================================================================================================================
 
-struct GLTF_EngineModelVertexData
-{
-  glm::vec3 pos;
-  glm::vec3 color;
-  glm::vec3 normal;
-  glm::vec2 tex_coord;
-
-  static const int attribute_count = 4;
-
-  static VkVertexInputBindingDescription getBindingDescription()
-  {
-    VkVertexInputBindingDescription binding_description{};
-    binding_description.binding = 0;
-    binding_description.stride = sizeof(GLTF_EngineModelVertexData);
-    binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    return binding_description;
-  }
-
-  static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions()
-  {
-    std::vector<VkVertexInputAttributeDescription> attribute_descriptions{4};
-
-    attribute_descriptions[0].binding = 0;
-    attribute_descriptions[0].location = 0;
-    attribute_descriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attribute_descriptions[0].offset = offsetof(GLTF_EngineModelVertexData, pos);
-
-    attribute_descriptions[1].binding = 0;
-    attribute_descriptions[1].location = 1;
-    attribute_descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attribute_descriptions[1].offset = offsetof(GLTF_EngineModelVertexData, color);
-
-    attribute_descriptions[2].binding = 0;
-    attribute_descriptions[2].location = 2;
-    attribute_descriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attribute_descriptions[2].offset = offsetof(GLTF_EngineModelVertexData, normal);
-
-    attribute_descriptions[3].binding = 0;
-    attribute_descriptions[3].location = 3;
-    attribute_descriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
-    attribute_descriptions[3].offset = offsetof(GLTF_EngineModelVertexData, tex_coord);
-
-    return attribute_descriptions;
-  }
-
-  bool operator==(const GLTF_EngineModelVertexData& data) const
-  {
-    return (pos == data.pos && normal == data.normal && color == data.color
-            && tex_coord == data.tex_coord);
-  }
-};
-
 struct DEFAULT_EngineModelVertexData
 {
   glm::vec3 pos;
@@ -248,16 +196,6 @@ struct hash<SngoEngine::Core::Source::Buffer::DEFAULT_EngineModelVertexData>
   }
 };
 
-template <>
-struct hash<SngoEngine::Core::Source::Buffer::GLTF_EngineModelVertexData>
-{
-  size_t operator()(
-      SngoEngine::Core::Source::Buffer::GLTF_EngineModelVertexData const& vertex) const
-  {
-    return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.normal) << 1)) >> 1)
-           ^ (hash<glm::vec2>()(vertex.tex_coord) << 1);
-  }
-};
 }  // namespace std
 
 #endif

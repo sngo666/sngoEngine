@@ -46,11 +46,11 @@ struct EngineDescriptorSetLayout
   U& operator=(U&) = delete;
   ~EngineDescriptorSetLayout()
   {
-    if (descriptor_set_layout != VK_NULL_HANDLE)
-      vkDestroyDescriptorSetLayout(device->logical_device, descriptor_set_layout, Alloc);
+    if (layout != VK_NULL_HANDLE)
+      vkDestroyDescriptorSetLayout(device->logical_device, layout, Alloc);
   }
 
-  VkDescriptorSetLayout descriptor_set_layout{};
+  VkDescriptorSetLayout layout{};
   size_t binding_size{};
   const Device::LogicalDevice::EngineDevice* device{};
 
@@ -80,13 +80,11 @@ struct EngineDescriptorPool
   {
     creator(_device, args...);
   }
-  template <typename U>
-  U& operator=(U&) = delete;
   ~EngineDescriptorPool()
   {
-    if (descriptor_pool != VK_NULL_HANDLE)
-      vkDestroyDescriptorPool(device->logical_device, descriptor_pool, Alloc);
+    destroyer();
   }
+  void destroyer();
 
   VkDescriptorPool descriptor_pool{};
   const Device::LogicalDevice::EngineDevice* device{};
@@ -96,12 +94,58 @@ struct EngineDescriptorPool
                uint32_t _maxSets,
                const std::vector<VkDescriptorPoolSize>& pool_sizes,
                const VkAllocationCallbacks* alloc = nullptr);
-  void creator(const Device::LogicalDevice::EngineDevice* _device,
-               uint32_t _maxSets,
-               uint32_t sampler_num,
-               const VkAllocationCallbacks* alloc = nullptr);
 
   const VkAllocationCallbacks* Alloc{};
+};
+
+//===========================================================================================================================
+// EngineDescriptorSet
+//===========================================================================================================================
+
+struct EngineDescriptorSet
+{
+  EngineDescriptorSet() = default;
+  EngineDescriptorSet(EngineDescriptorSet&&) noexcept = default;
+  EngineDescriptorSet& operator=(EngineDescriptorSet&&) noexcept = default;
+  template <class... Args>
+  explicit EngineDescriptorSet(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
+  template <class... Args>
+  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
+  explicit operator VkDescriptorSet() const
+  {
+    return descriptor_set;
+  }
+  ~EngineDescriptorSet() = default;
+
+  void updateWrite(VkWriteDescriptorSet* descriptor_write,
+                   uint32_t descriptorCopyCount = 0,
+                   VkCopyDescriptorSet* pDescriptorCopies = nullptr);
+  void updateWrite(const std::vector<VkWriteDescriptorSet>& descriptor_write,
+                   uint32_t descriptorCopyCount = 0,
+                   VkCopyDescriptorSet* pDescriptorCopies = nullptr);
+
+  VkDescriptorSet descriptor_set{};
+  const Device::LogicalDevice::EngineDevice* device{};
+
+ private:
+  void creator(const Device::LogicalDevice::EngineDevice* _device,
+               const EngineDescriptorSetLayout* _set_layout,
+               const EngineDescriptorPool* descriptor_pool);
+  void creator(const Device::LogicalDevice::EngineDevice* _device,
+               VkDescriptorSetLayout _layout,
+               VkDescriptorPool _pool);
+  void creator(const Device::LogicalDevice::EngineDevice* _device,
+               const EngineDescriptorSetLayout* _set_layout,
+               const EngineDescriptorPool* _pool,
+               VkWriteDescriptorSet* descriptor_write,
+               uint32_t descriptorCopyCount = 0,
+               VkCopyDescriptorSet* pDescriptorCopies = nullptr);
 };
 
 //===========================================================================================================================
@@ -166,8 +210,6 @@ struct EngineDescriptorSets
   {
     creator(_device, args...);
   }
-  template <typename U>
-  U& operator=(U&) = delete;
   ~EngineDescriptorSets() = default;
   VkDescriptorSet& operator[](size_t t);
   VkDescriptorSet* data();
@@ -191,8 +233,10 @@ struct EngineDescriptorSets
   void creator(const Device::LogicalDevice::EngineDevice* _device,
                const EngineDescriptorSetLayout* _set_layout,
                const EngineDescriptorPool* _pool,
-               std::vector<VkWriteDescriptorSet> descriptor_writes,
-               uint32_t SIZE);
+               uint32_t SIZE,
+               std::vector<VkWriteDescriptorSet>& descriptor_writes,
+               uint32_t descriptorCopyCount = 0,
+               VkCopyDescriptorSet* pDescriptorCopies = nullptr);
 };
 
 }  // namespace SngoEngine::Core::Source::Descriptor

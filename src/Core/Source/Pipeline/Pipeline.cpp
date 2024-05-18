@@ -71,7 +71,7 @@ VkPipelineShaderStageCreateInfo SngoEngine::Core::Source::Pipeline::Get_Fragment
 
 void SngoEngine::Core::Source::Pipeline::EnginePipelineLayout::creator(
     const Device::LogicalDevice::EngineDevice* _device,
-    const std::vector<VkDescriptorSetLayout>& descriptor_set_layout,
+    const std::vector<VkDescriptorSetLayout>& _layouts,
     const std::vector<VkPushConstantRange>& push_constant_range,
     const VkAllocationCallbacks* alloc)
 {
@@ -81,8 +81,8 @@ void SngoEngine::Core::Source::Pipeline::EnginePipelineLayout::creator(
 
   VkPipelineLayoutCreateInfo pipeline_layout_info{};
   pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  pipeline_layout_info.setLayoutCount = descriptor_set_layout.size();
-  pipeline_layout_info.pSetLayouts = descriptor_set_layout.data();
+  pipeline_layout_info.setLayoutCount = _layouts.size();
+  pipeline_layout_info.pSetLayouts = _layouts.data();
 
   pipeline_layout_info.pushConstantRangeCount = push_constant_range.size();
   if (!push_constant_range.empty())

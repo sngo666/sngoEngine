@@ -25,10 +25,13 @@
 #include "src/Core/Source/Buffer/CommandBuffer.hpp"
 #include "src/Core/Source/Buffer/Descriptor.hpp"
 #include "src/Core/Source/Buffer/VertexBuffer.hpp"
+#include "src/Core/Source/Model/Camera.hpp"
+#include "src/Core/Source/Model/Model.hpp"
 #include "src/Core/Source/Pipeline/Pipeline.hpp"
 #include "src/Core/Source/SwapChain/SwapChain.h"
 #include "src/Core/Utils/Utils.hpp"
 #include "src/GLFWEXT/Surface.h"
+#include "src/IMGUI/include/imgui.h"
 #include "src/IMGUI/include/imgui_impl_glfw.h"
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
@@ -172,8 +175,13 @@ int SngoEngine::Imgui::ImguiApplication::init()
                       VkExtent3D{gui_SwapChain.extent.width, gui_SwapChain.extent.height, 1});
 
   std::vector<VkImageView> additional_views{gui_DepthResource.engine_ImageView.image_view};
+
+  // --------------------  FrameBuffers  --------------------
+
   gui_SwapChain.Create_FrameBuffers(additional_views, &main_RenderPass);
   fmt::println("FrameBuffers created");
+
+  // ---------------------  Command  ------------------------
 
   gui_CommandPool(
       &gui_Device,
@@ -187,14 +195,41 @@ int SngoEngine::Imgui::ImguiApplication::init()
     }
   fmt::println("gui_CommandBuffers created");
 
-  model_UniBuffer.resize(Core::Macro::MAX_FRAMES_IN_FLIGHT);
-  for (int i = 0; i < Core::Macro::MAX_FRAMES_IN_FLIGHT; i++)
-    {
-      model_UniBuffer[i](&gui_Device, gui_Device.graphics_queue);
-    }
+  // ---------------------  Unibuffer  ------------------------
+
+  model_UniBuffer(&gui_Device, gui_Device.graphics_queue);
+  // prepare for uniform binding
+  {
+    std::vector<VkDescriptorPoolSize> poolSizes = {
+        Core::Source::Descriptor::Get_DescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1)};
+
+    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
+        Core::Source::Descriptor::GetLayoutBinding(
+            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            0)};
+
+    uni_pool(&gui_Device, 1, poolSizes);
+    uni_setlayout(&gui_Device, setLayoutBindings);
+    uni_set(&gui_Device, &uni_setlayout, &uni_pool);
+
+    std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
+        // Binding 0 : Vertex shader uniform buffer
+        Core::Source::Descriptor::GetDescriptSet_Write(uni_set.descriptor_set,
+                                                       VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                                       0,
+                                                       &model_UniBuffer.descriptor)};
+    uni_set.updateWrite(writeDescriptorSets);
+  }
+  // ---------------------  Models  ------------------------
 
   load_model();
+
+  // --------------------- Pipeline ------------------------
+
   construct_pipeline();
+
+  // --------------------- Semaphore ------------------------
 
   gui_Fences(&gui_Device, Core::Macro::MAX_FRAMES_IN_FLIGHT);
   fmt::println("gui_Fences created");
@@ -203,12 +238,26 @@ int SngoEngine::Imgui::ImguiApplication::init()
   gui_RenderCompleteSemaphores(&gui_Device, semaphore_count);
   fmt::println("gui_ImageAcquiredSemaphores&gui_RenderCompleteSemaphores created");
 
+  // --------------------- Camera ------------------------
+
+  main_Camera = {EngineCamera::CameraType::firstperson,
+                 glm::vec3(0.0f, 0.0f, -4.8f),
+                 glm::vec3(4.5f, -380.0f, 0.0f)};
+  main_Camera.setPerspective(
+      30.0f, (float)mainWindow_extent.width / (float)mainWindow_extent.height, 0.1f, 256.0f);
+  main_Camera.setPosition({0.0f, 0.0f, 0.0f});
+  main_Camera.setMovementSpeed(4.0f);
+  main_Camera.setRotationSpeed(0.3f);
+
+  // ---------------------------------------------------------
+
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO& io = ImGui::GetIO();
   (void)io;
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;   // Enable Gamepad Controls
+  // binding_keymapping(io);
   ImGui::StyleColorsDark();
 
   ImGui_ImplGlfw_InitForVulkan(gui_Surface.window, TRUE);
@@ -232,8 +281,10 @@ int SngoEngine::Imgui::ImguiApplication::init()
   ImGui_ImplVulkan_Init(&init_info);
 
   bool show_demo_window = false;
-  bool show_another_window = false;
   ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+  float move_speed = 1 / 30.0f;
+  float region_x = io.MousePos.x;
+  float region_y = io.MousePos.y;
 
   while (!glfwWindowShouldClose(gui_Surface.window))
     {
@@ -246,15 +297,15 @@ int SngoEngine::Imgui::ImguiApplication::init()
       // application, or clear/overwrite your copy of the keyboard data. Generally you may always
       // pass all inputs to dear imgui, and hide them from your application based on those two
       // flags.
+      auto now = clock();
+
       glfwPollEvents();
 
-      clock_t now = clock();
-
-      if (33 > 1000.0f / io.Framerate)
-        {
-          while (clock() - now < static_cast<uint32_t>(33 - 1000.0f / io.Framerate))
-            ;
-        }
+      // if (33 > 1000.0f / io.Framerate)
+      //   {
+      //     while (clock() - now < (static_cast<uint32_t>(33 - 1000.0f / io.Framerate)))
+      //       ;
+      //   }
 
       // Resize swap chain?
       if (gui_SwapChainRebuild)
@@ -278,54 +329,110 @@ int SngoEngine::Imgui::ImguiApplication::init()
       ImGui_ImplVulkan_NewFrame();
       ImGui_ImplGlfw_NewFrame();
       ImGui::NewFrame();
+      io = ImGui::GetIO();
 
-      // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can
-      // browse its code to learn more about Dear ImGui!).
+      // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You
+      // can browse its code to learn more about Dear ImGui!).
       if (show_demo_window)
         ImGui::ShowDemoWindow(&show_demo_window);
 
-      // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named
-      // window.
+      // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a
+      // named window.
+      auto time_start = std::chrono::high_resolution_clock::now();
+      bool viewUpdated = false;
+      bool camera_Updated = false;
+
       {
-        static float f = 0.0f;
-        static int counter = 0;
+        ImGui::Begin("Sngo Engine!");
 
-        ImGui::Begin(
-            "Hello, world!");  // Create a window called "Hello, world!" and append into it.
+        // if (main_Camera.type == EngineCamera::firstperson)
+        {
+          main_Camera.keys.up = ImGui::IsKeyDown(ImGui::GetKeyIndex(ImGuiKey_W));
+          main_Camera.keys.down = ImGui::IsKeyDown(ImGui::GetKeyIndex(ImGuiKey_S));
+          main_Camera.keys.left = ImGui::IsKeyDown(ImGui::GetKeyIndex(ImGuiKey_A));
+          main_Camera.keys.right = ImGui::IsKeyDown(ImGui::GetKeyIndex(ImGuiKey_D));
 
-        ImGui::Text(
-            "This is some useful text.");  // Display some text (you can use a format strings too)
-        ImGui::Checkbox("Demo Window",
-                        &show_demo_window);  // Edit bools storing our window open/close state
-        ImGui::Checkbox("Another Window", &show_another_window);
+          ImGui::Text("mouseR: ");
+          if (ImGui::IsKeyDown(ImGui::GetKeyIndex(ImGuiKey_MouseRight)))
+            {
+              ImVec2 pos = ImGui::GetMousePos();
+              ImGui::SameLine();
+              ImGui::Text("%.1f %.1f", pos.x, pos.y);
+              camera_Updated = true;
+            }
+        }
 
-        ImGui::SliderFloat(
-            "float", &f, 0.0f, 1.0f);  // Edit 1 float using a slider from 0.0f to 1.0f
-        ImGui::ColorEdit3("clear color",
-                          (float*)&clear_color);  // Edit 3 floats representing a color
+        if (main_Camera.moving())
+          {
+            viewUpdated = true;
+          }
 
-        if (ImGui::Button("Button"))  // Buttons return true when clicked (most widgets return true
-                                      // when edited/activated)
-          counter++;
+        ImGui::CheckboxFlags("io.ConfigFlags: NavEnableKeyboard",
+                             (unsigned int*)&io.ConfigFlags,
+                             ImGuiConfigFlags_NavEnableKeyboard);
+        ImGui::Text("Vulkan API %i.%i.%i",
+                    VK_API_VERSION_MAJOR(gui_Device.pPD->properties.apiVersion),
+                    VK_API_VERSION_MINOR(gui_Device.pPD->properties.apiVersion),
+                    VK_API_VERSION_PATCH(gui_Device.pPD->properties.apiVersion));
+
+        // driver infos
+        {
+          VkPhysicalDeviceDriverProperties driverProperties{};
+          if (gui_Device.ext_supported(VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME))
+            {
+              VkPhysicalDeviceProperties2 deviceProperties2 = {};
+              deviceProperties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+              deviceProperties2.pNext = &driverProperties;
+              driverProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES;
+              vkGetPhysicalDeviceProperties2(gui_Device.pPD->physical_device, &deviceProperties2);
+            }
+          ImGui::Text("%s %s", driverProperties.driverName, driverProperties.driverInfo);
+        }
+        ImGui::SliderFloat("move speed", &main_Camera.movementSpeed, 1.0f, 10.0f);
+        ImGui::SliderFloat("view speed", &main_Camera.rotationSpeed, 0.05f, 1.5f);
+        ImGui::Text("camera:");
         ImGui::SameLine();
-        ImGui::Text("counter = %d", counter);
+        ImGui::Text("%.1f %.1f %.1f",
+                    main_Camera.position.x,
+                    main_Camera.position.y,
+                    main_Camera.position.z);
+
+        // Edit 3 floats representing a color
+        ImGui::ColorEdit3("clear color", (float*)&clear_color);
 
         ImGui::Text(
             "Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+
         ImGui::End();
       }
 
-      // 3. Show another simple window.
-      if (show_another_window)
+      if (viewUpdated)
         {
-          ImGui::Begin(
-              "Another Window",
-              &show_another_window);  // Pass a pointer to our bool variable (the window will have a
-                                      // closing button that will clear the bool when clicked)
-          ImGui::Text("Hello from another window!");
-          if (ImGui::Button("Close Me"))
-            show_another_window = false;
-          ImGui::End();
+          auto time_end = std::chrono::high_resolution_clock::now();
+
+          auto t{std::chrono::duration<float, std::milli>(time_end - time_start).count() / 1000.0f};
+          ImGui::Text("frame time: %f", t);
+
+          main_Camera.update(t);
+        }
+
+      ImGui::Text("dx, dy: ");
+      if (camera_Updated)
+        {
+          ImVec2 pos = io.MouseDelta;
+          float dx = pos.x;
+          float dy = pos.y;
+          main_Camera.rotate(
+              glm::vec3(dy * -main_Camera.rotationSpeed, dx * main_Camera.rotationSpeed, 0.0f));
+
+          ImGui::SameLine();
+          ImGui::Text("%f, %f", dx, dy);
+          ImGui::Text("pos: ");
+          ImGui::SameLine();
+          ImGui::Text("(%f, %f)", pos.x, pos.x);
+
+          camera_Updated = false;
+          // main_Camera.translate(glm::vec3(-0.0f, 0.0f, dy * .005f));
         }
 
       // Rendering
@@ -351,6 +458,7 @@ int SngoEngine::Imgui::ImguiApplication::init()
 
   gui_ImageAcquiredSemaphores.destroyer();
   gui_RenderCompleteSemaphores.destroyer();
+  gui_DescriptorPool.destroyer();
   // gui_SwapChain.CleanUp_Self();
   fmt::println("destory end");
 
@@ -444,37 +552,18 @@ void SngoEngine::Imgui::ImguiApplication::Render_Frame(ImDrawData* draw_data,
                       VK_PIPELINE_BIND_POINT_GRAPHICS,
                       model_GraphicPipeline.pipeline);
 
-    // std::vector<VkBuffer> vertex_buffers{model_anti_zombie.Model.vertex_buffer.buffer};
-    // std::vector<VkDeviceSize> offsets{0};
-    // vkCmdBindVertexBuffers(gui_CommandBuffers[Frame_Index].command_buffer,
-    //                        0,
-    //                        1,
-    //                        vertex_buffers.data(),
-    //                        offsets.data());
-    // vkCmdBindIndexBuffer(gui_CommandBuffers[Frame_Index].command_buffer,
-    //                      model_anti_zombie.Model.index_buffer.buffer,
-    //                      0,
-    //                      VK_INDEX_TYPE_UINT32);
-    // // auto temp = (model_anti_zombie.descriptor_sets.descriptor_sets[Frame_Index]);
-    // vkCmdBindDescriptorSets(gui_CommandBuffers[Frame_Index].command_buffer,
-    //                         VK_PIPELINE_BIND_POINT_GRAPHICS,
-    //                         model_Pipelinelayout.pipeline_layout,
-    //                         0,
-    //                         1,
-    //                         &model_anti_zombie.descriptor_sets.descriptor_sets[Frame_Index],
-    //                         0,
-    //                         nullptr);
-    // // throw std::runtime_error("break!!!!!!!!!");
+    vkCmdBindDescriptorSets(gui_CommandBuffers[Frame_Index].command_buffer,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            model_Pipelinelayout.pipeline_layout,
+                            0,
+                            1,
+                            &uni_set.descriptor_set,
+                            0,
+                            nullptr);
 
-    // vkCmdDrawIndexed(gui_CommandBuffers[Frame_Index].command_buffer,
-    //                  static_cast<uint32_t>(model_anti_zombie.Model.indices.size()),
-    //                  1,
-    //                  0,
-    //                  0,
-    //                  0);
-
-    old_school.draw(
-        gui_CommandBuffers[Frame_Index].command_buffer, model_Pipelinelayout.pipeline_layout, 0);
+    old_school.bind_buffers(gui_CommandBuffers[Frame_Index].command_buffer);
+    old_school.draw(gui_CommandBuffers[Frame_Index].command_buffer,
+                    model_Pipelinelayout.pipeline_layout);
 
     vkCmdNextSubpass(gui_CommandBuffers[Frame_Index].command_buffer, VK_SUBPASS_CONTENTS_INLINE);
     // Record dear imgui primitives into command buffer
@@ -528,9 +617,14 @@ void SngoEngine::Imgui::ImguiApplication::Present_Frame()
 void SngoEngine::Imgui::ImguiApplication::construct_pipeline()
 {
   std::vector<VkVertexInputBindingDescription> binding_description = {
-      Core::Source::Buffer::GLTF_EngineModelVertexData::getBindingDescription()};
+      Core::Source::Model::GLTF_EngineModelVertexData::getBindingDescription()};
   auto attribute_descriptions =
-      Core::Source::Buffer::GLTF_EngineModelVertexData::getAttributeDescriptions();
+      Core::Source::Model::GLTF_EngineModelVertexData::getAttributeDescriptions(
+          Core::Source::Model::GLTF_EngineModelVertexData::POS
+              | Core::Source::Model::GLTF_EngineModelVertexData::NORMAL
+              | Core::Source::Model::GLTF_EngineModelVertexData::UV
+              | Core::Source::Model::GLTF_EngineModelVertexData::TANGENT,
+          0);
   VkPipelineVertexInputStateCreateInfo vertex_input{
       Core::Data::GetVertexInput_Info(binding_description, attribute_descriptions)};
   VkPipelineInputAssemblyStateCreateInfo input_assembly{Core::Data::GetInputAssembly_Info()};
@@ -546,12 +640,10 @@ void SngoEngine::Imgui::ImguiApplication::construct_pipeline()
   VkPipelineColorBlendStateCreateInfo color_blend{
       Core::Data::DEFAULT_COLORBLEND_INFO(color_blend_attachment_info)};
 
-  std::vector<VkPushConstantRange> ranges{
-      VkPushConstantRange{VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)}};
+  std::vector<VkPushConstantRange> ranges{};
   model_Pipelinelayout(
       &gui_Device,
-      std::vector<VkDescriptorSetLayout>{old_school.layouts.matrices_layout.descriptor_set_layout,
-                                         old_school.layouts.texture_layout.descriptor_set_layout},
+      std::vector<VkDescriptorSetLayout>{uni_setlayout.layout, old_school.layouts.texture.layout},
       ranges);
 
   std::string vert_code{Core::Utils::read_file(MAIN_VertexShader_code).data()};
@@ -580,63 +672,34 @@ void SngoEngine::Imgui::ImguiApplication::construct_pipeline()
       &gui_Device, &model_Pipelinelayout, &main_RenderPass, shader_stages, &pipeline_info, 0);
 }
 
-// void SngoEngine::Imgui::ImguiApplication::load_model()
-// {
-//   std::vector<std::string> texture_files{};
-//   SngoEngine::Core::Utils::glob_file(MODEL_texture_directory, ".png", texture_files);
-
-//   std::vector<VkDescriptorSetLayoutBinding> bindings{
-//       Core::Source::Descriptor::GetLayoutBinding_UBO(),
-//   };
-
-//   for (int i = 0; i < texture_files.size(); i++)
-//     {
-//       bindings.push_back(Core::Source::Descriptor::GetLayoutBinding_Sampler(i + 1));
-//     }
-
-//   model_DescriptorSetlayout(&gui_Device, bindings);
-
-//   model_anti_zombie(MODEL_obj_file,
-//                     texture_files,
-//                     &gui_Device,
-//                     gui_CommandPool.command_pool,
-//                     &model_DescriptorSetlayout,
-//                     &model_UniBuffer);
-
-//   // throw std::runtime_error("_________________");
-//   model_anti_zombie.Model.load_buffer(
-//       &gui_Device, gui_CommandPool.command_pool, gui_Device.graphics_queue);
-// }
-
 void SngoEngine::Imgui::ImguiApplication::load_model()
 {
-  auto descriptor{model_UniBuffer[0].descriptor};
-  old_school(MAIN_OLD_SCHOOL, &gui_Device, &gui_CommandPool, &descriptor);
+  old_school(MAIN_OLD_SCHOOL, &gui_Device, &gui_CommandPool);
 }
 
 void SngoEngine::Imgui::ImguiApplication::update_uniform_buffer(uint32_t current_frame)
 {
-  static auto start_time{std::chrono::high_resolution_clock::now()};
-  auto current_time{std::chrono::high_resolution_clock::now()};
-
-  auto time{std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time)
-                .count()};
-
   Core::Source::Buffer::UniformBuffer_Trans ubo{};
-  ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-  ubo.view = glm::lookAt(
-      glm::vec3(8.0f, 8.0f, 8.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-  ubo.proj =
-      glm::perspective(glm::radians(45.0f),
-                       (float)gui_SwapChain.extent.width / (float)gui_SwapChain.extent.height,
-                       0.1f,
-                       100.0f);
+  ubo.projection = main_Camera.matrices.perspective;
+  ubo.modelView = main_Camera.matrices.view;
+  ubo.inverseModelview = glm::inverse(main_Camera.matrices.view);
+  ubo.lodBias = 0.0f;
 
-  ubo.proj[1][1] *= -1;
-
-  memcpy(model_UniBuffer[current_frame].mapped, &ubo, sizeof(ubo));
+  memcpy(model_UniBuffer.mapped, &ubo, sizeof(ubo));
 }
 
+void SngoEngine::Imgui::ImguiApplication::binding_keymapping(ImGuiIO& io)
+{
+  io.KeyMap[ImGuiKey_Tab] = VK_TAB;
+  io.KeyMap[ImGuiKey_LeftArrow] = VK_LEFT;
+  io.KeyMap[ImGuiKey_RightArrow] = VK_RIGHT;
+  io.KeyMap[ImGuiKey_UpArrow] = VK_UP;
+  io.KeyMap[ImGuiKey_DownArrow] = VK_DOWN;
+  io.KeyMap[ImGuiKey_Backspace] = VK_BACK;
+  io.KeyMap[ImGuiKey_Enter] = VK_RETURN;
+  io.KeyMap[ImGuiKey_Space] = VK_SPACE;
+  io.KeyMap[ImGuiKey_Delete] = VK_DELETE;
+}
 // Create DescriptorPool for m_ImGuiDescriptorPool
 void SngoEngine::Imgui::ImguiApplication::create_IMGUI_DescriptorPoor()
 {

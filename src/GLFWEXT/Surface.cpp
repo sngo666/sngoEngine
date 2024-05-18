@@ -21,36 +21,13 @@ VkSurfaceKHR SngoEngine::GlfwExt::Create_Surface(GLFWwindow* _window, VkInstance
   return surface;
 }
 
-SngoEngine::GlfwExt::EngineGlfwSurface::EngineGlfwSurface(
-    const Core::Instance::EngineInstance* _instance,
-    VkExtent2D _extent,
-    const std::string& _window_name,
-    const VkAllocationCallbacks* alloc)
-    : EngineGlfwSurface()
-{
-  creator(_instance, _extent, _window_name, alloc);
-}
-void SngoEngine::GlfwExt::EngineGlfwSurface::operator()(
-    const Core::Instance::EngineInstance* _instance,
-    VkExtent2D _extent,
-    const std::string& _window_name,
-    const VkAllocationCallbacks* alloc)
-{
-  creator(_instance, _extent, _window_name, alloc);
-}
-
 void SngoEngine::GlfwExt::EngineGlfwSurface::creator(
     const Core::Instance::EngineInstance* _instance,
     VkExtent2D _extent,
     const std::string& _window_name,
     const VkAllocationCallbacks* alloc)
 {
-  if (surface != VK_NULL_HANDLE)
-    vkDestroySurfaceKHR(instance->instance, surface, nullptr);
-  if (window != nullptr)
-    {
-      glfwDestroyWindow(window);
-    }
+  destroyer();
   instance = _instance;
   window_title = _window_name;
   Alloc = alloc;
@@ -81,7 +58,7 @@ std::string SngoEngine::GlfwExt::EngineGlfwSurface::title()
   return window_title;
 }
 
-VkExtent2D SngoEngine::GlfwExt::EngineGlfwSurface::extent()
+VkExtent2D SngoEngine::GlfwExt::EngineGlfwSurface::extent() const
 {
   int width = 0, height = 0;
   glfwGetFramebufferSize(window, &width, &height);
@@ -94,7 +71,12 @@ void SngoEngine::GlfwExt::EngineGlfwSurface::resize(VkExtent2D new_extent)
       window, static_cast<int>(new_extent.width), static_cast<int>(new_extent.height));
 }
 
-const VkAllocationCallbacks* SngoEngine::GlfwExt::EngineGlfwSurface::AllocationCallbacks()
+void SngoEngine::GlfwExt::EngineGlfwSurface::destroyer()
 {
-  return Alloc;
+  if (surface != VK_NULL_HANDLE)
+    vkDestroySurfaceKHR(instance->instance, surface, nullptr);
+  if (window != nullptr)
+    {
+      glfwDestroyWindow(window);
+    }
 }

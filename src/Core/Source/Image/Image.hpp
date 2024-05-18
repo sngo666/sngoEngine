@@ -160,6 +160,7 @@ struct EngineTextureImage
   ImageView::EngineImageView view{};
   const Device::LogicalDevice::EngineDevice* device{};
   EngineSampler sampler{};
+  VkDescriptorImageInfo descriptor{};
 
  private:
   // main creator
@@ -202,6 +203,12 @@ struct EngineTextureImage
                              const VkAllocationCallbacks* alloc = nullptr);
   const VkAllocationCallbacks* Alloc{};
 };
+
+void Get_EmptyTextureImg(const Device::LogicalDevice::EngineDevice* _device,
+                         EngineTextureImage& img,
+                         VkCommandPool _pool,
+                         const VkAllocationCallbacks* alloc = nullptr);
+
 };  // namespace SngoEngine::Core::Source::Image
 
 #endif

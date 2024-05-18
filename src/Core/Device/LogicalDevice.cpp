@@ -7,6 +7,11 @@
 
 #include "src/Core/Data.h"
 
+bool SngoEngine::Core::Device::LogicalDevice::EngineDevice::ext_supported(const std::string& _ext) const
+{
+  return (pPD->extensions.find(_ext) != pPD->extensions.end());
+}
+
 void SngoEngine::Core::Device::LogicalDevice::EngineDevice::creator(
     PhysicalDevice::EnginePhysicalDevice* P_physical_device,
     VkSurfaceKHR _device_surface,

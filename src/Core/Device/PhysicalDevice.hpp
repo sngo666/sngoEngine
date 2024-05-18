@@ -4,6 +4,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include <cstddef>
+#include <unordered_set>
 
 #include "src/Core/Data.h"
 #include "src/Core/Instance/Instance.h"
@@ -15,9 +16,9 @@ namespace SngoEngine::Core::Device::PhysicalDevice
 Data::SwapChainSupportDetails Query_SwapChain_Support(VkPhysicalDevice physical_device,
                                                       VkSurfaceKHR surface);
 
-bool Check_PhysicalDevice_ExtensionSupport(const VkPhysicalDevice& physical_device);
-bool Check_PhysicalDevice_ExtensionSupport(const VkPhysicalDevice& physical_device,
-                                           const char* extension);
+bool Check_PhysicalDevice_ExtensionSupport(
+    VkPhysicalDevice physical_device,
+    const std::vector<std::string>& extension = Macro::DEVICE_REQUIRED_EXTS);
 
 Data::QueueFamilyIndices Find_Queue_Families(VkPhysicalDevice physical_device,
                                              VkSurfaceKHR surface,
@@ -59,6 +60,7 @@ struct EnginePhysicalDevice
   const Instance::EngineInstance* instance{};
   VkSurfaceKHR surface{};
 
+  std::unordered_set<std::string> extensions;
   VkPhysicalDeviceProperties properties{};
   VkPhysicalDeviceFeatures enabled_features{};
 

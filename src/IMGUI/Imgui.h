@@ -18,6 +18,7 @@
 #include "src/Core/Source/Buffer/Descriptor.hpp"
 #include "src/Core/Source/Buffer/UniformBuffer.hpp"
 #include "src/Core/Source/Image/DepthResource.hpp"
+#include "src/Core/Source/Model/Camera.hpp"
 #include "src/Core/Source/Model/Model.hpp"
 #include "src/Core/Source/Pipeline/Pipeline.hpp"
 #include "src/Core/Source/SwapChain/SwapChain.h"
@@ -30,8 +31,8 @@ namespace SngoEngine::Imgui
 const std::string MODEL_obj_file{"./source/viking_room.obj"};
 const std::string MODEL_texture_directory{"./textures/viking_room"};
 
-const std::string MAIN_VertexShader_code{"./shader/vertex_shader.vs"};
-const std::string MAIN_FragmentShader_code{"./shader/frag_shader.fs"};
+const std::string MAIN_VertexShader_code{"./shader/vertex_shader_normal.vs"};
+const std::string MAIN_FragmentShader_code{"./shader/frag_shader_normal.fs"};
 const std::string MAIN_OLD_SCHOOL{"./source/old_school/scene.gltf"};
 
 using Glfw_Err_CallBack = void (*)(int, const char*);
@@ -68,7 +69,6 @@ struct ImguiApplication
   VkPipelineCache gui_PipelineCache{};
   Core::Instance::DebugMessenger::EngineDebugMessenger gui_DebugMessenger;
   Core::Device::PhysicalDevice::EnginePhysicalDevice gui_PhysicalDevice{};
-  Core::Device::LogicalDevice::EngineDevice gui_Device;
   Core::Source::Descriptor::EngineDescriptorPool gui_DescriptorPool{};
   Core::Source::SwapChain::EngineSwapChain gui_SwapChain;
 
@@ -84,12 +84,30 @@ struct ImguiApplication
 
   Core::Source::Pipeline::EnginePipelineLayout model_Pipelinelayout;
   Core::Source::Pipeline::EngineGraphicPipeline model_GraphicPipeline;
-  std::vector<Core::Source::Buffer::TransUniBuffer> model_UniBuffer;
+
+  Core::Source::Buffer::TransUniBuffer model_UniBuffer;
+  Core::Source::Descriptor::EngineDescriptorPool uni_pool;
+  Core::Source::Descriptor::EngineDescriptorSetLayout uni_setlayout;
+  Core::Source::Descriptor::EngineDescriptorSet uni_set;
+  Core::Device::LogicalDevice::EngineDevice gui_Device;
 
   Core::Source::Model::EngineGltfModel old_school;
+  EngineCamera main_Camera;
 
   std::array<VkClearValue, 2> gui_Clearvalue{};
 
+  struct
+  {
+    struct
+    {
+      bool left = false;
+      bool right = false;
+      bool middle = false;
+    } buttons;
+    glm::vec2 position;
+  } mouseState;
+
+  void binding_keymapping(ImGuiIO& io);
   int init();
   void Render_Frame(ImDrawData* draw_data, std::array<VkClearValue, 2> gui_Clearvalue);
   void Present_Frame();
@@ -116,4 +134,5 @@ struct ImguiApplication
 };
 
 }  // namespace SngoEngine::Imgui
+
 #endif

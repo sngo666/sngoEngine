@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include "fmt/core.h"
 #include "src/Core/Data.h"
 #include "src/Core/Device/LogicalDevice.hpp"
 
@@ -32,8 +33,6 @@ struct EngineImageView
   {
     creator(_device, args...);
   }
-  template <typename U>
-  U& operator=(U&) = delete;
   ~EngineImageView()
   {
     if (image_view != VK_NULL_HANDLE)
@@ -71,8 +70,6 @@ struct EngineImageViews
     creator(_device, args...);
   }
 
-  template <typename U>
-  U& operator=(U&) = delete;
   ~EngineImageViews()
   {
     destroyer();

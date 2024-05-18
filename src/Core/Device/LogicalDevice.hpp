@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <optional>
 #include <set>
+#include <string>
 
 #include "src/Core/Device/PhysicalDevice.hpp"
 #include "src/Core/Macro.h"
@@ -30,13 +31,16 @@ struct EngineDevice
   {
     creator(args...);
   }
-  template <typename U>
-  U& operator=(U&) = delete;
   ~EngineDevice()
   {
     if (logical_device != VK_NULL_HANDLE)
       vkDestroyDevice(logical_device, Alloc);
   };
+
+  //------------------------------- functions ------------------------------
+  [[nodiscard]] bool ext_supported(const std::string& _ext) const;
+
+  //------------------------------- members ------------------------------
 
   Data::QueueFamilyIndices queue_family;
   VkSurfaceKHR device_surface{};
@@ -44,6 +48,9 @@ struct EngineDevice
   VkDevice logical_device{};
   VkQueue graphics_queue{};
   VkQueue present_queue{};
+
+  // properties
+  std::set<std::string> extensions;
 
  private:
   void creator(PhysicalDevice::EnginePhysicalDevice* _physical_device,

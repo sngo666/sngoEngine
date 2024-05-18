@@ -3,6 +3,7 @@
 #include <vulkan/vulkan_core.h>
 #include <winnt.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -362,6 +363,7 @@ void SngoEngine::Core::Source::Image::EngineImage::destroyer()
     {
       vkDestroyImage(device->logical_device, image, Alloc);
       vkFreeMemory(device->logical_device, image_memory, Alloc);
+      image = VK_NULL_HANDLE;
     }
 }
 
@@ -516,6 +518,10 @@ void SngoEngine::Core::Source::Image::EngineTextureImage::creator(
 
       ktxTexture_Destroy(ktxTexture);
     }
+
+  descriptor.sampler = sampler.sampler;
+  descriptor.imageView = view.image_view;
+  descriptor.imageLayout = _layout;
 }
 
 void SngoEngine::Core::Source::Image::EngineTextureImage::creator(
@@ -532,6 +538,7 @@ void SngoEngine::Core::Source::Image::EngineTextureImage::creator(
   Alloc = alloc;
   device = _device;
   extent = {pixel_data.width, pixel_data.height};
+  mip_levels = 1;
 
   if (using_stage)
     {
@@ -541,6 +548,10 @@ void SngoEngine::Core::Source::Image::EngineTextureImage::creator(
     {
       CreateWithout_Staging(_device, _pool, pixel_data, _format, _usage, dst_layout, Alloc);
     }
+
+  descriptor.sampler = sampler.sampler;
+  descriptor.imageView = view.image_view;
+  descriptor.imageLayout = dst_layout;
 }
 
 // creator for jpg/png
@@ -602,17 +613,15 @@ void SngoEngine::Core::Source::Image::EngineTextureImage::CreateWith_Staging(
   image_memory = img.image_memory;
 
   // create image view
-  {
-    Data::ImageViewCreate_Info _info{image, used_format, subresourceRange};
-    _info.subresourceRange.levelCount = mip_levels;
-    view(device, _info, Alloc);
-  }
+
+  Data::ImageViewCreate_Info _info{image, used_format, subresourceRange};
+  _info.subresourceRange.levelCount = mip_levels;
+  view(device, _info, Alloc);
 
   // create image sampler
-  {
-    auto sampler_info{Get_Default_Sampler(device, static_cast<float>(mip_levels))};
-    sampler(device, sampler_info, Alloc);
-  }
+
+  auto sampler_info{Get_Default_Sampler(device, static_cast<float>(mip_levels))};
+  sampler(device, sampler_info, Alloc);
 
   img.image = VK_NULL_HANDLE;
   img.image_memory = VK_NULL_HANDLE;
@@ -689,4 +698,22 @@ void SngoEngine::Core::Source::Image::EngineTextureImage::destroyer()
       vkDestroyImage(device->logical_device, image, Alloc);
       vkFreeMemory(device->logical_device, image_memory, Alloc);
     }
+}
+
+void SngoEngine::Core::Source::Image::Get_EmptyTextureImg(
+    const Device::LogicalDevice::EngineDevice* _device,
+    EngineTextureImage& img,
+    VkCommandPool _pool,
+    const VkAllocationCallbacks* alloc)
+{
+  uint32_t width{1};
+  uint32_t height{1};
+
+  size_t bufferSize = static_cast<size_t>(width * height) * 4;
+  unsigned char* buffer = new unsigned char[bufferSize];
+  memset(buffer, 0, bufferSize);
+
+  img(_device, _pool, EnginePixelData{buffer, width, height, bufferSize});
+
+  delete[] buffer;
 }

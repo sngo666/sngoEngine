@@ -70,8 +70,8 @@ void SngoEngine::Core::Source::Descriptor::EngineDescriptorSetLayout::creator(
     const std::vector<VkDescriptorSetLayoutBinding>& _bingdings,
     const VkAllocationCallbacks* alloc)
 {
-  if (descriptor_set_layout != VK_NULL_HANDLE)
-    vkDestroyDescriptorSetLayout(device->logical_device, descriptor_set_layout, Alloc);
+  if (layout != VK_NULL_HANDLE)
+    vkDestroyDescriptorSetLayout(device->logical_device, layout, Alloc);
   device = _device;
   Alloc = alloc;
   binding_size = _bingdings.size();
@@ -81,8 +81,7 @@ void SngoEngine::Core::Source::Descriptor::EngineDescriptorSetLayout::creator(
   layout_info.bindingCount = _bingdings.size();
   layout_info.pBindings = _bingdings.data();
 
-  if (vkCreateDescriptorSetLayout(
-          device->logical_device, &layout_info, Alloc, &descriptor_set_layout)
+  if (vkCreateDescriptorSetLayout(device->logical_device, &layout_info, Alloc, &layout)
       != VK_SUCCESS)
     {
       throw std::runtime_error("failed to create descriptor set layout!");
@@ -99,8 +98,7 @@ void SngoEngine::Core::Source::Descriptor::EngineDescriptorPool::creator(
     const std::vector<VkDescriptorPoolSize>& pool_sizes,
     const VkAllocationCallbacks* alloc)
 {
-  if (descriptor_pool != VK_NULL_HANDLE)
-    vkDestroyDescriptorPool(device->logical_device, descriptor_pool, Alloc);
+  destroyer();
   Alloc = alloc;
   device = _device;
 
@@ -118,25 +116,110 @@ void SngoEngine::Core::Source::Descriptor::EngineDescriptorPool::creator(
     }
 }
 
-void SngoEngine::Core::Source::Descriptor::EngineDescriptorPool::creator(
-    const Device::LogicalDevice::EngineDevice* _device,
-    uint32_t _maxSets,
-    uint32_t sampler_num,
-    const VkAllocationCallbacks* alloc)
+void SngoEngine::Core::Source::Descriptor::EngineDescriptorPool::destroyer()
 {
-  std::vector<VkDescriptorPoolSize> pool_sizes;
-  pool_sizes.resize(sampler_num + 1);
-
-  pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  pool_sizes[0].descriptorCount = static_cast<uint32_t>(_maxSets);
-
-  for (size_t i = 0; i < sampler_num; i++)
+  if (descriptor_pool != VK_NULL_HANDLE)
     {
-      pool_sizes[i + 1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-      pool_sizes[i + 1].descriptorCount = static_cast<uint32_t>(_maxSets);
+      vkDestroyDescriptorPool(device->logical_device, descriptor_pool, Alloc);
+      descriptor_pool = VK_NULL_HANDLE;
     }
+}
 
-  creator(_device, _maxSets, pool_sizes, alloc);
+// void SngoEngine::Core::Source::Descriptor::EngineDescriptorPool::creator(
+//     const Device::LogicalDevice::EngineDevice* _device,
+//     uint32_t _maxSets,
+//     uint32_t sampler_num,
+//     const VkAllocationCallbacks* alloc)
+// {
+//   std::vector<VkDescriptorPoolSize> pool_sizes;
+//   pool_sizes.resize(sampler_num + 1);
+
+//   pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+//   pool_sizes[0].descriptorCount = static_cast<uint32_t>(_maxSets);
+
+//   for (size_t i = 0; i < sampler_num; i++)
+//     {
+//       pool_sizes[i + 1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+//       pool_sizes[i + 1].descriptorCount = static_cast<uint32_t>(_maxSets);
+//     }
+
+//   creator(_device, _maxSets, pool_sizes, alloc);
+// }
+
+//===========================================================================================================================
+// EngineDescriptorSet
+//===========================================================================================================================
+void SngoEngine::Core::Source::Descriptor::EngineDescriptorSet::creator(
+    const Device::LogicalDevice::EngineDevice* _device,
+    const EngineDescriptorSetLayout* _set_layout,
+    const EngineDescriptorPool* descriptor_pool)
+{
+  descriptor_set = VK_NULL_HANDLE;
+  device = _device;
+
+  VkDescriptorSetAllocateInfo alloc_info{};
+  alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  alloc_info.descriptorPool = descriptor_pool->descriptor_pool;
+  alloc_info.descriptorSetCount = 1;
+  alloc_info.pSetLayouts = &_set_layout->layout;
+
+  if (vkAllocateDescriptorSets(device->logical_device, &alloc_info, &descriptor_set) != VK_SUCCESS)
+    {
+      throw std::runtime_error("failed to allocate descriptor sets!");
+    }
+}
+
+void SngoEngine::Core::Source::Descriptor::EngineDescriptorSet::creator(
+    const Device::LogicalDevice::EngineDevice* _device,
+    VkDescriptorSetLayout _layout,
+    VkDescriptorPool _pool)
+{
+  descriptor_set = VK_NULL_HANDLE;
+  device = _device;
+
+  VkDescriptorSetAllocateInfo alloc_info{};
+  alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  alloc_info.descriptorPool = _pool;
+  alloc_info.descriptorSetCount = 1;
+  alloc_info.pSetLayouts = &_layout;
+
+  if (vkAllocateDescriptorSets(device->logical_device, &alloc_info, &descriptor_set) != VK_SUCCESS)
+    {
+      throw std::runtime_error("failed to allocate descriptor sets!");
+    }
+}
+
+void SngoEngine::Core::Source::Descriptor::EngineDescriptorSet::creator(
+    const Device::LogicalDevice::EngineDevice* _device,
+    const EngineDescriptorSetLayout* _set_layout,
+    const EngineDescriptorPool* _pool,
+    VkWriteDescriptorSet* descriptor_write,
+    uint32_t descriptorCopyCount,
+    VkCopyDescriptorSet* pDescriptorCopies)
+{
+  creator(_device, _set_layout, _pool);
+  updateWrite(descriptor_write, descriptorCopyCount, pDescriptorCopies);
+}
+
+void SngoEngine::Core::Source::Descriptor::EngineDescriptorSet::updateWrite(
+    VkWriteDescriptorSet* descriptor_write,
+    uint32_t descriptorCopyCount,
+    VkCopyDescriptorSet* pDescriptorCopies)
+{
+  vkUpdateDescriptorSets(
+      device->logical_device, 1, descriptor_write, descriptorCopyCount, pDescriptorCopies);
+}
+
+void SngoEngine::Core::Source::Descriptor::EngineDescriptorSet::updateWrite(
+    const std::vector<VkWriteDescriptorSet>& descriptor_write,
+    uint32_t descriptorCopyCount,
+    VkCopyDescriptorSet* pDescriptorCopies)
+{
+  vkUpdateDescriptorSets(device->logical_device,
+                         descriptor_write.size(),
+                         descriptor_write.data(),
+                         descriptorCopyCount,
+                         pDescriptorCopies);
 }
 
 //===========================================================================================================================
@@ -299,7 +382,7 @@ void SngoEngine::Core::Source::Descriptor::EngineDescriptorSets::creator(
   device = _device;
 
   VkDescriptorSetAllocateInfo alloc_info{};
-  std::vector<VkDescriptorSetLayout> layout(SIZE, _set_layout->descriptor_set_layout);
+  std::vector<VkDescriptorSetLayout> layout(SIZE, _set_layout->layout);
 
   alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
   alloc_info.descriptorPool = _pool->descriptor_pool;
@@ -319,17 +402,13 @@ void SngoEngine::Core::Source::Descriptor::EngineDescriptorSets::creator(
     const Device::LogicalDevice::EngineDevice* _device,
     const EngineDescriptorSetLayout* _set_layout,
     const EngineDescriptorPool* _pool,
-    std::vector<VkWriteDescriptorSet> descriptor_writes,
-    uint32_t SIZE)
+    uint32_t SIZE,
+    std::vector<VkWriteDescriptorSet>& descriptor_writes,
+    uint32_t descriptorCopyCount,
+    VkCopyDescriptorSet* pDescriptorCopies)
 {
   creator(_device, _set_layout, _pool, SIZE);
-
-  for (size_t i = 0; i < SIZE; i++)
-    {
-      vkUpdateDescriptorSets(
-          device->logical_device, descriptor_writes.size(), descriptor_writes.data(), 0, nullptr);
-    }
-  // throw std::runtime_error("failed to allocate descriptor sets!");
+  updateWrite(descriptor_writes, descriptorCopyCount, pDescriptorCopies);
 }
 
 void SngoEngine::Core::Source::Descriptor::EngineDescriptorSets::updateWrite(
@@ -341,7 +420,6 @@ void SngoEngine::Core::Source::Descriptor::EngineDescriptorSets::updateWrite(
   vkUpdateDescriptorSets(
       device->logical_device, writes.size(), writes.data(), descriptorCopyCount, pDescriptorCopies);
 }
-
 
 void SngoEngine::Core::Source::Descriptor::EngineDescriptorSets::destroyer()
 {

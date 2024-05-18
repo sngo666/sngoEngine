@@ -1,6 +1,8 @@
 #ifndef __SNGO_CAMERA_H
 #define __SNGO_CAMERA_H
 
+#include "GLFW/glfw3.h"
+#include "fmt/core.h"
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
@@ -14,7 +16,16 @@ struct EngineCamera
     lookat,
     firstperson
   };
-  CameraType type = CameraType::lookat;
+  // ------------------------  constructors  ---------------------
+  EngineCamera() = default;
+  EngineCamera(CameraType _type, glm::vec3 _pos, glm::vec3 _rot) : rotation(_rot), position(_pos)
+  {
+    updateViewMatrix();
+  };
+
+  // ------------------------  members  --------------------------
+
+  CameraType type = CameraType::firstperson;
 
   glm::vec3 rotation = glm::vec3();
   glm::vec3 position = glm::vec3();
@@ -30,7 +41,7 @@ struct EngineCamera
   {
     glm::mat4 perspective;
     glm::mat4 view;
-  } matrices;
+  } matrices{};
 
   struct
   {
@@ -161,8 +172,8 @@ struct EngineCamera
   };
 
  private:
-  float fov;
-  float znear, zfar;
+  float fov{};
+  float znear{}, zfar{};
 
   // ------------------------  function  --------------------------
 

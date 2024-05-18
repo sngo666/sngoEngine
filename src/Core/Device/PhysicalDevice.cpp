@@ -2,6 +2,7 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <cstdint>
 #include <set>
 #include <vector>
 
@@ -50,7 +51,8 @@ uint32_t SngoEngine::Core::Device::PhysicalDevice::IsDevice_Suitable(
 }
 
 bool SngoEngine::Core::Device::PhysicalDevice::Check_PhysicalDevice_ExtensionSupport(
-    const VkPhysicalDevice& physical_device)
+    VkPhysicalDevice physical_device,
+    const std::vector<std::string>& _extension)
 {
   uint32_t extension_count;
 
@@ -60,8 +62,7 @@ bool SngoEngine::Core::Device::PhysicalDevice::Check_PhysicalDevice_ExtensionSup
   vkEnumerateDeviceExtensionProperties(
       physical_device, nullptr, &extension_count, available_extensions.data());
 
-  std::set<std::string> required_extensions{SngoEngine::Core::Macro::DEVICE_REQUIRED_EXTS.begin(),
-                                            SngoEngine::Core::Macro::DEVICE_REQUIRED_EXTS.end()};
+  std::set<std::string> required_extensions{_extension.begin(), _extension.end()};
 
   for (const auto& extension_name : available_extensions)
     {
@@ -69,24 +70,6 @@ bool SngoEngine::Core::Device::PhysicalDevice::Check_PhysicalDevice_ExtensionSup
     }
 
   return required_extensions.empty();
-}
-
-bool SngoEngine::Core::Device::PhysicalDevice::Check_PhysicalDevice_ExtensionSupport(
-    const VkPhysicalDevice& physical_device,
-    const char* extension)
-{
-  uint32_t extension_count;
-
-  vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &extension_count, nullptr);
-
-  std::vector<VkExtensionProperties> available_extensions{extension_count};
-  vkEnumerateDeviceExtensionProperties(
-      physical_device, nullptr, &extension_count, available_extensions.data());
-
-  for (const VkExtensionProperties& p : available_extensions)
-    if (strcmp(p.extensionName, extension) == 0)
-      return true;
-  return false;
 }
 
 SngoEngine::Core::Data::SwapChainSupportDetails
@@ -160,6 +143,10 @@ SngoEngine::Core::Device::PhysicalDevice::Find_Queue_Families(VkPhysicalDevice p
   return indices;
 }
 
+//===========================================================================================================================
+// EnginePhysicalDevice
+//===========================================================================================================================
+
 void SngoEngine::Core::Device::PhysicalDevice::EnginePhysicalDevice::creator(
     const Instance::EngineInstance* _instance,
     VkSurfaceKHR _surface,
@@ -192,10 +179,26 @@ void SngoEngine::Core::Device::PhysicalDevice::EnginePhysicalDevice::creator(
         }
     }
 
-  vkGetPhysicalDeviceProperties(physical_device, &this->properties);
-  vkGetPhysicalDeviceFeatures(physical_device, &this->enabled_features);
   if (physical_device == VK_NULL_HANDLE)
     {
       throw std::runtime_error("failed to find a suitable GPU!");
+    }
+
+  vkGetPhysicalDeviceProperties(physical_device, &this->properties);
+  vkGetPhysicalDeviceFeatures(physical_device, &this->enabled_features);
+
+  uint32_t ext_count{0};
+  vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &ext_count, nullptr);
+  if (ext_count > 0)
+    {
+      std::vector<VkExtensionProperties> exts(ext_count);
+      if (vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &ext_count, &exts.front())
+          == VK_SUCCESS)
+        {
+          for (auto& ext : exts)
+            {
+              extensions.insert(ext.extensionName);
+            }
+        }
     }
 }

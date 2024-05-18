@@ -29,35 +29,34 @@ void frame_buffer_resize_callback(GLFWwindow* window, int width, int height)
   app->FrameBuffer_Resized = true;
 }
 
+//===========================================================================================================================
+// EngineGlfwSurface
+//===========================================================================================================================
+
 struct EngineGlfwSurface
 {
   EngineGlfwSurface() = default;
   EngineGlfwSurface(EngineGlfwSurface&&) noexcept = default;
   EngineGlfwSurface& operator=(EngineGlfwSurface&&) noexcept = default;
-  EngineGlfwSurface(const Core::Instance::EngineInstance* _instance,
-                    VkExtent2D _extent,
-                    const std::string& _window_name,
-                    const VkAllocationCallbacks* alloc = nullptr);
-  void operator()(const Core::Instance::EngineInstance* _instance,
-                  VkExtent2D _extent,
-                  const std::string& _window_name,
-                  const VkAllocationCallbacks* alloc = nullptr);
-  template <typename U>
-  U& operator=(U&) = delete;
+  template <class... Args>
+  explicit EngineGlfwSurface(const Core::Instance::EngineInstance* _instance, Args... args)
+  {
+    creator(_instance, args...);
+  }
+  template <class... Args>
+  void operator()(const Core::Instance::EngineInstance* _instance, Args... args)
+  {
+    creator(_instance, args...);
+  }
   ~EngineGlfwSurface()
   {
-    if (surface != VK_NULL_HANDLE)
-      vkDestroySurfaceKHR(instance->instance, surface, nullptr);
-    if (window != nullptr)
-      {
-        glfwDestroyWindow(window);
-      }
+    destroyer();
   }
 
+  void destroyer();
   std::string title();
-  VkExtent2D extent();
+  [[nodiscard]] VkExtent2D extent() const;
   void resize(VkExtent2D new_extent);
-  const VkAllocationCallbacks* AllocationCallbacks();
 
   VkSurfaceKHR surface{};
   GLFWwindow* window{};
@@ -68,7 +67,7 @@ struct EngineGlfwSurface
   void creator(const Core::Instance::EngineInstance* _instance,
                VkExtent2D _extent,
                const std::string& _window_name,
-               const VkAllocationCallbacks* alloc);
+               const VkAllocationCallbacks* alloc = nullptr);
   std::string window_title;
   const VkAllocationCallbacks* Alloc{};
 };

@@ -17,10 +17,15 @@ namespace SngoEngine::Core::Source::Buffer
 
 struct UniformBuffer_Trans
 {
-  alignas(16) glm::mat4 model;
-  alignas(16) glm::mat4 view;
-  alignas(16) glm::mat4 proj;
+  glm::mat4 projection;
+  glm::mat4 modelView;
+  glm::mat4 inverseModelview;
+  float lodBias = 0.0f;
 };
+
+//===========================================================================================================================
+// EngineUniformBuffer
+//===========================================================================================================================
 
 template <typename T>
 struct EngineUniformBuffer
@@ -57,7 +62,6 @@ struct EngineUniformBuffer
   VkBuffer buffer{};
   VkDeviceMemory buffer_memory{};
   void* mapped{};
-  VkDeviceSize range{};
   VkDescriptorBufferInfo descriptor{};
   const Device::LogicalDevice::EngineDevice* device{};
 
@@ -71,7 +75,6 @@ struct EngineUniformBuffer
     device = _device;
 
     VkDeviceSize buffer_size{sizeof(T)};
-    range = buffer_size;
     EngineBuffer temp_buffer(
         device,
         Data::BufferCreate_Info{buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT},
