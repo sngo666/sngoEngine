@@ -42,8 +42,6 @@ struct EngineDescriptorSetLayout
   {
     creator(_device, args...);
   }
-  template <typename U>
-  U& operator=(U&) = delete;
   ~EngineDescriptorSetLayout()
   {
     if (layout != VK_NULL_HANDLE)

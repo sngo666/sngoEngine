@@ -78,10 +78,10 @@ SngoEngine::Imgui::GUI_SUBPASS_DEPENDENCY()
   dependency_2nd.srcSubpass = 0;
   dependency_2nd.dstSubpass = 1;
   dependency_2nd.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  dependency_2nd.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
   dependency_2nd.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  dependency_2nd.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
+  dependency_2nd.srcAccessMask = 0;
+  dependency_2nd.dstAccessMask =
+      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
   deps.emplace_back(dependency_2nd);
 
   return deps;
@@ -201,7 +201,9 @@ int SngoEngine::Imgui::ImguiApplication::init()
   // prepare for uniform binding
   {
     std::vector<VkDescriptorPoolSize> poolSizes = {
-        Core::Source::Descriptor::Get_DescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1)};
+        Core::Source::Descriptor::Get_DescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1),
+        Core::Source::Descriptor::Get_DescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                                         1)};
 
     std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
         Core::Source::Descriptor::GetLayoutBinding(
@@ -209,7 +211,7 @@ int SngoEngine::Imgui::ImguiApplication::init()
             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
             0)};
 
-    uni_pool(&gui_Device, 1, poolSizes);
+    uni_pool(&gui_Device, 2, poolSizes);
     uni_setlayout(&gui_Device, setLayoutBindings);
     uni_set(&gui_Device, &uni_setlayout, &uni_pool);
 
@@ -548,6 +550,34 @@ void SngoEngine::Imgui::ImguiApplication::Render_Frame(ImDrawData* draw_data,
     scissor.extent = gui_SwapChain.extent;
     vkCmdSetScissor(gui_CommandBuffers[Frame_Index].command_buffer, 0, 1, &scissor);
 
+    // skybox_pipeline
+    vkCmdBindPipeline(gui_CommandBuffers[Frame_Index].command_buffer,
+                      VK_PIPELINE_BIND_POINT_GRAPHICS,
+                      skybox_GraphicPipeline.pipeline);
+
+    vkCmdBindDescriptorSets(gui_CommandBuffers[Frame_Index].command_buffer,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            skybox_Pipelinelayout.pipeline_layout,
+                            1,
+                            1,
+                            &skybox_set.descriptor_set,
+                            0,
+                            nullptr);
+
+    vkCmdBindDescriptorSets(gui_CommandBuffers[Frame_Index].command_buffer,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            skybox_Pipelinelayout.pipeline_layout,
+                            0,
+                            1,
+                            &uni_set.descriptor_set,
+                            0,
+                            nullptr);
+
+    sky_box.model.bind_buffers(gui_CommandBuffers[Frame_Index].command_buffer);
+    sky_box.model.draw(gui_CommandBuffers[Frame_Index].command_buffer,
+                       skybox_Pipelinelayout.pipeline_layout);
+
+    // render model
     vkCmdBindPipeline(gui_CommandBuffers[Frame_Index].command_buffer,
                       VK_PIPELINE_BIND_POINT_GRAPHICS,
                       model_GraphicPipeline.pipeline);
@@ -640,25 +670,48 @@ void SngoEngine::Imgui::ImguiApplication::construct_pipeline()
   VkPipelineColorBlendStateCreateInfo color_blend{
       Core::Data::DEFAULT_COLORBLEND_INFO(color_blend_attachment_info)};
 
+  // -------------------- pipeline layout ---------------------
+
   std::vector<VkPushConstantRange> ranges{};
   model_Pipelinelayout(
       &gui_Device,
       std::vector<VkDescriptorSetLayout>{uni_setlayout.layout, old_school.layouts.texture.layout},
       ranges);
 
-  std::string vert_code{Core::Utils::read_file(MAIN_VertexShader_code).data()};
+  skybox_Pipelinelayout(
+      &gui_Device,
+      std::vector<VkDescriptorSetLayout>{uni_setlayout.layout, skybox_setlayout.layout},
+      ranges);
+
+  // -------------------- shader code ---------------------
+  std::string vert_code{Core::Utils::read_file(MODEL_VertexShader_code).data()};
   auto vertex_shader_module{
       Core::Utils::Glsl_ShaderCompiler(gui_Device.logical_device, EShLangVertex, vert_code)};
-  std::string frag_code{Core::Utils::read_file(MAIN_FragmentShader_code).data()};
+  std::string frag_code{Core::Utils::read_file(MODEL_FragmentShader_code).data()};
   auto fragment_shader_module{
       Core::Utils::Glsl_ShaderCompiler(gui_Device.logical_device, EShLangFragment, frag_code)};
-
   VkPipelineShaderStageCreateInfo vertex_stage{
       Core::Source::Pipeline::Get_VertexShader_CreateInfo("main", vertex_shader_module)};
   VkPipelineShaderStageCreateInfo frag_stage{
       Core::Source::Pipeline::Get_FragmentShader_CreateInfo("main", fragment_shader_module)};
 
+  std::string skybox_vert_code{Core::Utils::read_file(SKYBOX_VertexShader_code).data()};
+  auto skybox_vertex_shader_module{
+      Core::Utils::Glsl_ShaderCompiler(gui_Device.logical_device, EShLangVertex, skybox_vert_code)};
+  std::string skybox_frag_code{Core::Utils::read_file(SKYBOX_FragmentShader_code).data()};
+  auto skybox_fragment_shader_module{Core::Utils::Glsl_ShaderCompiler(
+      gui_Device.logical_device, EShLangFragment, skybox_frag_code)};
+  VkPipelineShaderStageCreateInfo skybox_vertex_stage{
+      Core::Source::Pipeline::Get_VertexShader_CreateInfo("main", skybox_vertex_shader_module)};
+  VkPipelineShaderStageCreateInfo skybox_frag_stage{
+      Core::Source::Pipeline::Get_FragmentShader_CreateInfo("main", skybox_fragment_shader_module)};
+
   std::vector<VkPipelineShaderStageCreateInfo> shader_stages{vertex_stage, frag_stage};
+  std::vector<VkPipelineShaderStageCreateInfo> skybox_shader_stages{skybox_vertex_stage,
+                                                                    skybox_frag_stage};
+
+  // -------------------- pipeline initialization ---------------------
+
   Core::Data::PipelinePreparation_Info pipeline_info{vertex_input,
                                                      input_assembly,
                                                      viewport_state,
@@ -670,11 +723,31 @@ void SngoEngine::Imgui::ImguiApplication::construct_pipeline()
 
   model_GraphicPipeline(
       &gui_Device, &model_Pipelinelayout, &main_RenderPass, shader_stages, &pipeline_info, 0);
+
+  auto sky_box_attribute_descriptions =
+      Core::Source::Model::GLTF_EngineModelVertexData::getAttributeDescriptions(
+          Core::Source::Model::GLTF_EngineModelVertexData::POS, 0);
+  VkPipelineVertexInputStateCreateInfo sky_box_vertex_input{
+      Core::Data::GetVertexInput_Info(binding_description, sky_box_attribute_descriptions)};
+
+  pipeline_info.vertex_input = sky_box_vertex_input;
+  pipeline_info.depth_stencil = Core::Data::DEFAULT_DEPTHSTENCIL_DISABLED_INFO();
+  pipeline_info.rasterizer.cullMode = VK_CULL_MODE_FRONT_BIT;
+
+  skybox_GraphicPipeline(&gui_Device,
+                         &skybox_Pipelinelayout,
+                         &main_RenderPass,
+                         skybox_shader_stages,
+                         &pipeline_info,
+                         0);
 }
 
 void SngoEngine::Imgui::ImguiApplication::load_model()
 {
   old_school(MAIN_OLD_SCHOOL, &gui_Device, &gui_CommandPool);
+  sky_box(CUBEMAP_FILE, CUBEMAP_TEXTURE, &gui_Device, &gui_CommandPool);
+
+  sky_box.generate_descriptor(uni_pool, skybox_setlayout, skybox_set, 1);
 }
 
 void SngoEngine::Imgui::ImguiApplication::update_uniform_buffer(uint32_t current_frame)

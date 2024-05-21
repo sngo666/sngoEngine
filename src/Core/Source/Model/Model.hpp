@@ -739,8 +739,8 @@ struct EngineGltfModel
   void creator(const std::string& gltf_file,
                const Device::LogicalDevice::EngineDevice* _device,
                const Buffer::EngineCommandPool* _pool,
-               const uint32_t loading_flag = PreTransformVertices | FlipY,
-               const VkAllocationCallbacks* alloc = nullptr)
+               const VkAllocationCallbacks* alloc = nullptr,
+               const uint32_t loading_flag = PreTransformVertices | FlipY)
   {
     device = _device;
     Alloc = alloc;
@@ -891,26 +891,38 @@ struct EngineCubeMap
   EngineCubeMap& operator=(EngineCubeMap&&) noexcept = default;
   template <typename... Args>
   explicit EngineCubeMap(const std::string& gltf_file,
+                         const std::string& boxTexture_file,
                          const Device::LogicalDevice::EngineDevice* _device,
-                         Args... args)
+                         const Args... args)
   {
-    creator(gltf_file, _device, args...);
+    creator(gltf_file, boxTexture_file, _device, args...);
   }
   template <typename... Args>
   void operator()(const std::string& gltf_file,
+                  const std::string& boxTexture_file,
                   const Device::LogicalDevice::EngineDevice* _device,
                   Args... args)
   {
-    creator(gltf_file, _device, args...);
+    creator(gltf_file, boxTexture_file, _device, args...);
   }
   ~EngineCubeMap() = default;
 
+  void generate_descriptor(const Descriptor::EngineDescriptorPool& _pool,
+                           Descriptor::EngineDescriptorSetLayout& _layout,
+                           Descriptor::EngineDescriptorSet& _set,
+                           uint32_t binding);
+
   EngineGltfModel model;
-  Image::EngineTextureImage imgs;
+  Image::EngineCubeTexture cube_img;
+
+  const Device::LogicalDevice::EngineDevice* device{};
 
  private:
-  void creator();
-  void Load_CubeTexture();
+  void creator(const std::string& gltf_file,
+               const std::string& boxTexture_file,
+               const Device::LogicalDevice::EngineDevice* _device,
+               Buffer::EngineCommandPool* _pool,
+               const VkAllocationCallbacks* alloc = nullptr);
   const VkAllocationCallbacks* Alloc{};
 };
 

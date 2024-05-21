@@ -14,6 +14,7 @@
 #include "src/Core/Data.h"
 #include "src/Core/Device/LogicalDevice.hpp"
 #include "src/Core/Source/Buffer/CommandBuffer.hpp"
+#include "src/Core/Source/Buffer/Descriptor.hpp"
 #include "src/Core/Source/Buffer/IndexBuffer.hpp"
 #include "src/Core/Source/Buffer/VertexBuffer.hpp"
 #include "src/Core/Source/Image/Image.hpp"
@@ -687,7 +688,7 @@ void SngoEngine::Core::Source::Model::EngineGltfModel::drawNode(VkCommandBuffer 
           // Get the texture index for this primitive
           if (!skip)
             {
-              if (renderFlags & RenderFlags::BindImages)
+              if (renderFlags & RenderFlags::BindImages && material->base_color.is_available())
                 {
                   // fmt::println("draw img");
                   vkCmdBindDescriptorSets(commandBuffer,
@@ -727,4 +728,49 @@ void SngoEngine::Core::Source::Model::EngineGltfModel::destroyer()
 {
   for (auto& node : nodes)
     delete node;
+}
+
+//===========================================================================================================================
+// EngineCubeMap
+//===========================================================================================================================
+
+void SngoEngine::Core::Source::Model::EngineCubeMap::creator(
+    const std::string& gltf_file,
+    const std::string& boxTexture_file,
+    const Device::LogicalDevice::EngineDevice* _device,
+    Buffer::EngineCommandPool* _pool,
+    const VkAllocationCallbacks* alloc)
+{
+  device = _device;
+  Alloc = alloc;
+
+  cube_img(device, _pool->command_pool, boxTexture_file, Alloc);
+  model(gltf_file, device, _pool);
+}
+
+void SngoEngine::Core::Source::Model::EngineCubeMap::generate_descriptor(
+    const Descriptor::EngineDescriptorPool& _pool,
+    Descriptor::EngineDescriptorSetLayout& _layout,
+    Descriptor::EngineDescriptorSet& _set,
+    uint32_t binding)
+{
+  std::vector<VkDescriptorSetLayoutBinding> bindings{};
+  bindings.push_back(Descriptor::GetLayoutBinding(
+      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, binding));
+
+  _layout(device, bindings, Alloc);
+  _set(device, _layout.layout, _pool.descriptor_pool);
+
+  std::vector<VkWriteDescriptorSet> writes{};
+  VkWriteDescriptorSet writeDescriptorSet{};
+
+  writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  writeDescriptorSet.descriptorCount = 1;
+  writeDescriptorSet.dstSet = _set.descriptor_set;
+  writeDescriptorSet.dstBinding = binding;
+  writeDescriptorSet.pImageInfo = &cube_img.descriptor;
+  writes.push_back(writeDescriptorSet);
+
+  _set.updateWrite(writes);
 }

@@ -31,9 +31,15 @@ namespace SngoEngine::Imgui
 const std::string MODEL_obj_file{"./source/viking_room.obj"};
 const std::string MODEL_texture_directory{"./textures/viking_room"};
 
-const std::string MAIN_VertexShader_code{"./shader/vertex_shader_normal.vs"};
-const std::string MAIN_FragmentShader_code{"./shader/frag_shader_normal.fs"};
+const std::string MODEL_VertexShader_code{"./shader/vertex_shader_normal.vs"};
+const std::string MODEL_FragmentShader_code{"./shader/frag_shader_normal.fs"};
+
+const std::string SKYBOX_VertexShader_code{"./shader/vertex_shader_cubemap.vs"};
+const std::string SKYBOX_FragmentShader_code{"./shader/frag_shader_cubemap.fs"};
+
 const std::string MAIN_OLD_SCHOOL{"./source/old_school/scene.gltf"};
+const std::string CUBEMAP_FILE{"./source/cube.gltf"};
+const std::string CUBEMAP_TEXTURE{"./textures/cubemap_vulkan.ktx"};
 
 using Glfw_Err_CallBack = void (*)(int, const char*);
 static void check_vk_result(VkResult err);
@@ -84,14 +90,22 @@ struct ImguiApplication
 
   Core::Source::Pipeline::EnginePipelineLayout model_Pipelinelayout;
   Core::Source::Pipeline::EngineGraphicPipeline model_GraphicPipeline;
+  Core::Source::Pipeline::EnginePipelineLayout skybox_Pipelinelayout;
+  Core::Source::Pipeline::EngineGraphicPipeline skybox_GraphicPipeline;
 
   Core::Source::Buffer::TransUniBuffer model_UniBuffer;
   Core::Source::Descriptor::EngineDescriptorPool uni_pool;
+
   Core::Source::Descriptor::EngineDescriptorSetLayout uni_setlayout;
   Core::Source::Descriptor::EngineDescriptorSet uni_set;
+
+  Core::Source::Descriptor::EngineDescriptorSetLayout skybox_setlayout;
+  Core::Source::Descriptor::EngineDescriptorSet skybox_set;
+
   Core::Device::LogicalDevice::EngineDevice gui_Device;
 
   Core::Source::Model::EngineGltfModel old_school;
+  Core::Source::Model::EngineCubeMap sky_box;
   EngineCamera main_Camera;
 
   std::array<VkClearValue, 2> gui_Clearvalue{};

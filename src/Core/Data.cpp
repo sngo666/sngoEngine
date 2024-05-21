@@ -112,6 +112,21 @@ VkPipelineDepthStencilStateCreateInfo SngoEngine::Core::Data::DEFAULT_DEPTHSTENC
   return depth_stencil_info;
 }
 
+VkPipelineDepthStencilStateCreateInfo SngoEngine::Core::Data::DEFAULT_DEPTHSTENCIL_DISABLED_INFO()
+{
+  VkPipelineDepthStencilStateCreateInfo depth_stencil_info{};
+  depth_stencil_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+  depth_stencil_info.depthTestEnable = VK_FALSE;
+  depth_stencil_info.depthWriteEnable = VK_FALSE;
+  depth_stencil_info.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+  depth_stencil_info.depthBoundsTestEnable = VK_FALSE;
+  depth_stencil_info.minDepthBounds = 0.0f;
+  depth_stencil_info.maxDepthBounds = 1.0f;
+  depth_stencil_info.stencilTestEnable = VK_FALSE;
+
+  return depth_stencil_info;
+}
+
 VkPipelineColorBlendAttachmentState SngoEngine::Core::Data::GetDefaultColorBlend_Attachment()
 {
   VkPipelineColorBlendAttachmentState color_blend_attachment_info{};

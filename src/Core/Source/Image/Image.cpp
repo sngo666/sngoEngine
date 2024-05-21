@@ -717,3 +717,194 @@ void SngoEngine::Core::Source::Image::Get_EmptyTextureImg(
 
   delete[] buffer;
 }
+
+//===========================================================================================================================
+// EngineCubeTexture
+//===========================================================================================================================
+
+void SngoEngine::Core::Source::Image::EngineCubeTexture::creator(
+    const Device::LogicalDevice::EngineDevice* _device,
+    VkCommandPool _pool,
+    const std::string& texture_file,
+    const VkAllocationCallbacks* alloc,
+    VkFormat _format,
+    VkImageUsageFlags _usage,
+    VkImageLayout _layout)
+{
+  destroyer();
+  Alloc = alloc;
+  device = _device;
+
+  auto ext_name{Utils::GetFile_Extension(texture_file)};
+  if (ext_name.empty())
+    {
+      throw std::runtime_error("wrong extension name in file " + texture_file);
+    }
+  if (ext_name == "jpg" || ext_name == "png")
+    {
+      int tex_width{}, tex_height{}, tex_channel{};
+      stbi_uc* pixels{
+          stbi_load(texture_file.c_str(), &tex_width, &tex_height, &tex_channel, STBI_rgb_alpha)};
+
+      extent = {static_cast<uint32_t>(tex_width), static_cast<uint32_t>(tex_height)};
+      mip_levels = 1;
+
+      if (!pixels)
+        {
+          throw std::runtime_error("failed to load texture img!");
+        }
+
+      // TODO: add jpg-like support for cube texture
+      throw std::runtime_error("Unfinished support for jpg-like textures!");
+
+      stbi_image_free(pixels);
+    }
+  else if (ext_name == "ktx")
+    {
+      ktxTexture* ktxTexture;
+      ktxResult result = loadKTXFile(texture_file, &ktxTexture);
+      assert(result == KTX_SUCCESS);
+
+      extent = {ktxTexture->baseWidth, ktxTexture->baseHeight};
+      mip_levels = ktxTexture->numLevels;
+
+      ktx_uint8_t* ktxTexture_Data = ktxTexture_GetData(ktxTexture);
+      ktx_size_t ktxTextureSize = ktxTexture_GetSize(ktxTexture);
+
+      std::vector<VkBufferImageCopy> bufferCopyRegions;
+      for (uint32_t k = 0; k < 6; k++)
+        {
+          for (uint32_t i = 0; i < mip_levels; i++)
+            {
+              ktx_size_t offset;
+              KTX_error_code result = ktxTexture_GetImageOffset(ktxTexture, i, 0, k, &offset);
+              assert(result == KTX_SUCCESS);
+
+              VkBufferImageCopy bufferCopyRegion = {};
+              bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+              bufferCopyRegion.imageSubresource.mipLevel = i;
+              bufferCopyRegion.imageSubresource.baseArrayLayer = k;
+              bufferCopyRegion.imageSubresource.layerCount = 1;
+              bufferCopyRegion.imageExtent.width = std::max(1u, ktxTexture->baseWidth >> i);
+              bufferCopyRegion.imageExtent.height = std::max(1u, ktxTexture->baseHeight >> i);
+              bufferCopyRegion.imageExtent.depth = 1;
+              bufferCopyRegion.bufferOffset = offset;
+
+              bufferCopyRegions.push_back(bufferCopyRegion);
+            }
+        }
+
+      CreateCubeWith_Staging(_device,
+                             _pool,
+                             EnginePixelData{
+                                 ktxTexture_Data,
+                                 extent.width,
+                                 extent.height,
+                                 ktxTextureSize,
+                             },
+                             _format,
+                             _usage,
+                             _layout,
+                             bufferCopyRegions,
+                             Alloc);
+
+      ktxTexture_Destroy(ktxTexture);
+    }
+
+  descriptor.sampler = sampler.sampler;
+  descriptor.imageView = view.image_view;
+  descriptor.imageLayout = _layout;
+}
+
+// creator for jpg/png
+void SngoEngine::Core::Source::Image::EngineCubeTexture::CreateCubeWith_Staging(
+    const Device::LogicalDevice::EngineDevice* _device,
+    VkCommandPool _pool,
+    EnginePixelData pixel_data,
+    VkFormat _format,
+    VkImageUsageFlags _usage,
+    VkImageLayout dst_layout,
+    const std::vector<VkBufferImageCopy>& regions,
+    const VkAllocationCallbacks* alloc)
+{
+  assert(pixel_data.is_available());
+
+  auto subresourceRange{Data::DEFAULT_COLOR_IMAGE_SUBRESOURCE_INFO};
+  subresourceRange.levelCount = mip_levels;
+  subresourceRange.layerCount = 6;
+  auto used_format{_format};
+
+  Buffer::EngineBuffer staging_buffer{
+      device,
+      Data::BufferCreate_Info(pixel_data.size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT),
+      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+      Alloc};
+
+  void* data;
+  vkMapMemory(device->logical_device, staging_buffer.buffer_memory, 0, pixel_data.size, 0, &data);
+  memcpy(data, pixel_data.data, pixel_data.size);
+  vkUnmapMemory(device->logical_device, staging_buffer.buffer_memory);
+
+  EngineImage img{
+      device,
+      Data::ImageCreate_Info{
+          used_format,
+          {static_cast<uint32_t>(pixel_data.width), static_cast<uint32_t>(pixel_data.height), 1},
+          VK_IMAGE_TILING_OPTIMAL,
+          _usage,
+          mip_levels,
+          VK_SAMPLE_COUNT_1_BIT,
+          6,
+          VK_IMAGE_TYPE_2D,
+          VK_IMAGE_LAYOUT_UNDEFINED,
+          VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT},
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT};
+
+  Transition_ImageLayout(device,
+                         _pool,
+                         img.image,
+                         subresourceRange,
+                         VK_IMAGE_LAYOUT_UNDEFINED,
+                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+  if (regions.empty())
+    {
+      // Copy_Buffer2Image(device, _pool, staging_buffer.buffer, img.image, extent);
+      // TODO: add jpg-like support for cube texture
+    }
+  else
+    {
+      Copy_Buffer2Image(device, _pool, staging_buffer.buffer, img.image, regions);
+    }
+
+  Transition_ImageLayout(
+      device, _pool, img.image, subresourceRange, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dst_layout);
+
+  image = img.image;
+  image_memory = img.image_memory;
+
+  // create image view
+
+  Data::ImageViewCreate_Info _info{image, used_format, subresourceRange};
+  _info.subresourceRange.levelCount = mip_levels;
+  _info.subresourceRange.layerCount = 6;
+  _info.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+  view(device, _info, Alloc);
+
+  // create image sampler
+
+  auto sampler_info{Get_CubeTex_Sampler(device, static_cast<float>(mip_levels))};
+  sampler(device, sampler_info, Alloc);
+
+  img.image = VK_NULL_HANDLE;
+  img.image_memory = VK_NULL_HANDLE;
+  staging_buffer.destroyer();
+}
+
+void SngoEngine::Core::Source::Image::EngineCubeTexture::destroyer()
+{
+  if (image != VK_NULL_HANDLE)
+    {
+      vkDestroyImage(device->logical_device, image, Alloc);
+      vkFreeMemory(device->logical_device, image_memory, Alloc);
+    }
+}

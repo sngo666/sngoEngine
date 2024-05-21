@@ -165,7 +165,7 @@ void SngoEngine::Core::Source::Descriptor::EngineDescriptorSet::creator(
 
   if (vkAllocateDescriptorSets(device->logical_device, &alloc_info, &descriptor_set) != VK_SUCCESS)
     {
-      throw std::runtime_error("failed to allocate descriptor sets!");
+      throw std::runtime_error("failed to allocate descriptor set!");
     }
 }
 
@@ -185,7 +185,7 @@ void SngoEngine::Core::Source::Descriptor::EngineDescriptorSet::creator(
 
   if (vkAllocateDescriptorSets(device->logical_device, &alloc_info, &descriptor_set) != VK_SUCCESS)
     {
-      throw std::runtime_error("failed to allocate descriptor sets!");
+      throw std::runtime_error("failed to allocate descriptor set!");
     }
 }
 

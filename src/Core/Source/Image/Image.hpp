@@ -124,9 +124,6 @@ struct EngineImage
 // EngineTextureImage
 //===========================================================================================================================
 
-using UsingStaging_t = std::true_type;
-using UnUsingStaging_t = std::false_type;
-
 ktxResult loadKTXFile(const std::string& filename, ktxTexture** target);
 
 struct EngineTextureImage
@@ -208,6 +205,67 @@ void Get_EmptyTextureImg(const Device::LogicalDevice::EngineDevice* _device,
                          EngineTextureImage& img,
                          VkCommandPool _pool,
                          const VkAllocationCallbacks* alloc = nullptr);
+
+//===========================================================================================================================
+// EngineCubeTexture
+//===========================================================================================================================
+
+struct EngineCubeTexture
+{
+  EngineCubeTexture() = default;
+  EngineCubeTexture(EngineCubeTexture&&) noexcept = default;
+  EngineCubeTexture& operator=(EngineCubeTexture&&) noexcept = default;
+  template <class... Args>
+  explicit EngineCubeTexture(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
+  template <class... Args>
+  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
+  template <typename U>
+  U& operator=(U&) = delete;
+  ~EngineCubeTexture()
+  {
+    destroyer();
+  }
+  void destroyer();
+
+  uint32_t mip_levels = 1;
+  VkExtent2D extent{};
+
+  VkImage image{};
+  VkDeviceMemory image_memory{};
+  ImageView::EngineImageView view{};
+  const Device::LogicalDevice::EngineDevice* device{};
+  EngineSampler sampler{};
+  VkDescriptorImageInfo descriptor{};
+
+ private:
+  // main creator
+  void creator(const Device::LogicalDevice::EngineDevice* _device,
+               VkCommandPool _pool,
+               const std::string& texture_file,
+               const VkAllocationCallbacks* alloc = nullptr,
+               VkFormat _format = VK_FORMAT_R8G8B8A8_SRGB,
+               VkImageUsageFlags _usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT
+                                          | VK_IMAGE_USAGE_SAMPLED_BIT,
+               VkImageLayout dst_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+  // branch creator
+  void CreateCubeWith_Staging(const Device::LogicalDevice::EngineDevice* _device,
+                              VkCommandPool _pool,
+                              EnginePixelData pixel_data,
+                              VkFormat _format = VK_FORMAT_R8G8B8A8_SRGB,
+                              VkImageUsageFlags _usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT
+                                                         | VK_IMAGE_USAGE_SAMPLED_BIT,
+                              VkImageLayout dst_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                              const std::vector<VkBufferImageCopy>& regions = {},
+                              const VkAllocationCallbacks* alloc = nullptr);
+  const VkAllocationCallbacks* Alloc{};
+};
 
 };  // namespace SngoEngine::Core::Source::Image
 

@@ -37,8 +37,8 @@ struct ImageCreate_Info : public VkImageCreateInfo
                    VkImageUsageFlags _usage,
                    uint32_t _mipLevel = 1,
                    VkSampleCountFlagBits _samples = VK_SAMPLE_COUNT_1_BIT,
-                   VkImageType _imageType = VK_IMAGE_TYPE_2D,
                    uint32_t _arrayLayers = 1,
+                   VkImageType _imageType = VK_IMAGE_TYPE_2D,
                    VkImageLayout _initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
                    VkImageCreateFlags _flag = VkImageCreateFlagBits(),
                    VkSharingMode _sharingMode = VK_SHARING_MODE_EXCLUSIVE,
@@ -374,6 +374,8 @@ VkPipelineInputAssemblyStateCreateInfo GetInputAssembly_Info();
 VkPipelineRasterizationStateCreateInfo DEFAULT_RASTERIZER_INFO();
 VkPipelineMultisampleStateCreateInfo DEFAULT_MULTISAMPLING_INFO();
 VkPipelineDepthStencilStateCreateInfo DEFAULT_DEPTHSTENCIL_INFO();
+VkPipelineDepthStencilStateCreateInfo DEFAULT_DEPTHSTENCIL_DISABLED_INFO();
+
 VkPipelineColorBlendAttachmentState GetDefaultColorBlend_Attachment();
 VkPipelineColorBlendStateCreateInfo DEFAULT_COLORBLEND_INFO(
     VkPipelineColorBlendAttachmentState color_blend_attachment_info);

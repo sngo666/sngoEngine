@@ -13,7 +13,10 @@ namespace SngoEngine::Core::Source::Image
 //===========================================================================================================================
 
 VkSamplerCreateInfo Get_Default_Sampler(const Device::LogicalDevice::EngineDevice* device,
-                                        float mip_level = 0.0f);
+                                        float mip_level = 1.0f);
+
+VkSamplerCreateInfo Get_CubeTex_Sampler(const Device::LogicalDevice::EngineDevice* device,
+                                        float mip_level);
 
 struct EngineSampler
 {
