@@ -16,19 +16,19 @@
 #include "src/Core/Data.h"
 #include "src/Core/Device/LogicalDevice.hpp"
 #include "src/Core/Device/PhysicalDevice.hpp"
-#include "src/Core/Instance/DebugMessenger.h"
-#include "src/Core/Instance/Instance.h"
+#include "src/Core/Instance/DebugMessenger.hpp"
+#include "src/Core/Instance/Instance.hpp"
 #include "src/Core/Macro.h"
 #include "src/Core/Render/RenderPass.hpp"
-#include "src/Core/Signalis/Fence.h"
-#include "src/Core/Signalis/Semaphore.h"
+#include "src/Core/Signalis/Fence.hpp"
+#include "src/Core/Signalis/Semaphore.hpp"
 #include "src/Core/Source/Buffer/CommandBuffer.hpp"
 #include "src/Core/Source/Buffer/Descriptor.hpp"
 #include "src/Core/Source/Buffer/VertexBuffer.hpp"
 #include "src/Core/Source/Model/Camera.hpp"
 #include "src/Core/Source/Model/Model.hpp"
 #include "src/Core/Source/Pipeline/Pipeline.hpp"
-#include "src/Core/Source/SwapChain/SwapChain.h"
+#include "src/Core/Source/SwapChain/SwapChain.hpp"
 #include "src/Core/Utils/Utils.hpp"
 #include "src/GLFWEXT/Surface.h"
 #include "src/IMGUI/include/imgui.h"
@@ -56,10 +56,9 @@ static void SngoEngine::Imgui::check_vk_result(VkResult err)
     abort();
 }
 
-std::vector<SngoEngine::Core::Data::SubpassDependency_Info>
-SngoEngine::Imgui::GUI_SUBPASS_DEPENDENCY()
+std::vector<VkSubpassDependency> SngoEngine::Imgui::GUI_SUBPASS_DEPENDENCY()
 {
-  std::vector<SngoEngine::Core::Data::SubpassDependency_Info> deps;
+  std::vector<VkSubpassDependency> deps;
 
   VkSubpassDependency dependency_1st{};
   dependency_1st.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -100,17 +99,17 @@ int SngoEngine::Imgui::ImguiApplication::init()
       printf("GLFW: Vulkan Not Supported\n");
       return 1;
     }
-  gui_Instance("imgui_pbrt", IMGUI_REQUIRED_DEVICE_EXTS);
+  gui_Instance.init("imgui_pbrt", IMGUI_REQUIRED_DEVICE_EXTS);
 
   fmt::println("instance created");
 
-  gui_DebugMessenger(&gui_Instance, debug_call_back);
+  gui_DebugMessenger.init(&gui_Instance, debug_call_back);
   fmt::println("debug created");
 
   gui_Surface(&gui_Instance, mainWindow_extent, window_name);
   fmt::println("gui_Surface created");
 
-  gui_PhysicalDevice(&gui_Instance, gui_Surface.surface);
+  gui_PhysicalDevice.init(&gui_Instance, gui_Surface.surface);
   fmt::println("gui_PhysicalDevice created");
 
   auto device_EXTs{IMGUI_REQUIRED_DEVICE_EXTS};
@@ -122,7 +121,7 @@ int SngoEngine::Imgui::ImguiApplication::init()
     device_EXTs.push_back(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
 #endif
 
-  gui_Device(&gui_PhysicalDevice, gui_Surface.surface, device_EXTs, device_LAYERs);
+  gui_Device.init(&gui_PhysicalDevice, gui_Surface.surface, device_EXTs, device_LAYERs);
   fmt::println("gui_Device created");
 
   create_IMGUI_DescriptorPoor();
@@ -165,25 +164,33 @@ int SngoEngine::Imgui::ImguiApplication::init()
 
   std::vector<VkSubpassDescription> total_subpass{model_subpass, gui_subpass};
 
-  main_RenderPass(&gui_Device, GUI_SUBPASS_DEPENDENCY(), total_subpass, model_attachments);
+  main_RenderPass.init(&gui_Device, GUI_SUBPASS_DEPENDENCY(), total_subpass, model_attachments);
   fmt::println("main_RenderPass created");
-
-  gui_DepthResource(&gui_Device,
-                    VkExtent3D{gui_SwapChain.extent.width, gui_SwapChain.extent.height, 1});
-
-  model_DepthResource(&gui_Device,
-                      VkExtent3D{gui_SwapChain.extent.width, gui_SwapChain.extent.height, 1});
-
-  std::vector<VkImageView> additional_views{gui_DepthResource.engine_ImageView.image_view};
-
   // --------------------  FrameBuffers  --------------------
 
-  gui_SwapChain.Create_FrameBuffers(additional_views, &main_RenderPass);
+  gui_DepthResource.init(&gui_Device,
+                         VkExtent3D{gui_SwapChain.extent.width, gui_SwapChain.extent.height, 1});
+
+  model_DepthResource.init(&gui_Device,
+                           VkExtent3D{gui_SwapChain.extent.width, gui_SwapChain.extent.height, 1});
+
+  std::vector<VkImageView> additional_views{gui_DepthResource.engine_ImageView.image_view};
+  std::vector<std::vector<VkImageView>> _attachments;
+  for (auto& view : gui_SwapChain.image_views)
+    {
+      std::vector<VkImageView> atta{view};
+      atta.push_back(gui_DepthResource.engine_ImageView.image_view);
+      _attachments.push_back(atta);
+    }
+
+  swapchain_framebuffers.init(
+      &gui_Device, main_RenderPass.render_pass, _attachments, gui_SwapChain.extent, 1);
+
   fmt::println("FrameBuffers created");
 
   // ---------------------  Command  ------------------------
 
-  gui_CommandPool(
+  gui_CommandPool.init(
       &gui_Device,
       Core::Data::CommandPoolCreate_Info(gui_Device.queue_family.graphicsFamily.value()));
   fmt::println("gui_CommandPool created");
@@ -191,13 +198,13 @@ int SngoEngine::Imgui::ImguiApplication::init()
   gui_CommandBuffers.resize(Core::Macro::MAX_FRAMES_IN_FLIGHT);
   for (int i = 0; i < Core::Macro::MAX_FRAMES_IN_FLIGHT; i++)
     {
-      gui_CommandBuffers[i](&gui_Device, gui_CommandPool.command_pool);
+      gui_CommandBuffers[i].init(&gui_Device, gui_CommandPool.command_pool);
     }
   fmt::println("gui_CommandBuffers created");
 
   // ---------------------  Unibuffer  ------------------------
 
-  model_UniBuffer(&gui_Device, gui_Device.graphics_queue);
+  model_UniBuffer.init(&gui_Device, gui_Device.graphics_queue);
   // prepare for uniform binding
   {
     std::vector<VkDescriptorPoolSize> poolSizes = {
@@ -211,9 +218,9 @@ int SngoEngine::Imgui::ImguiApplication::init()
             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
             0)};
 
-    uni_pool(&gui_Device, 2, poolSizes);
-    uni_setlayout(&gui_Device, setLayoutBindings);
-    uni_set(&gui_Device, &uni_setlayout, &uni_pool);
+    uni_pool.init(&gui_Device, 2, poolSizes);
+    uni_setlayout.init(&gui_Device, setLayoutBindings);
+    uni_set.init(&gui_Device, &uni_setlayout, &uni_pool);
 
     std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
         // Binding 0 : Vertex shader uniform buffer
@@ -233,11 +240,11 @@ int SngoEngine::Imgui::ImguiApplication::init()
 
   // --------------------- Semaphore ------------------------
 
-  gui_Fences(&gui_Device, Core::Macro::MAX_FRAMES_IN_FLIGHT);
+  gui_Fences.init(&gui_Device, Core::Macro::MAX_FRAMES_IN_FLIGHT);
   fmt::println("gui_Fences created");
 
-  gui_ImageAcquiredSemaphores(&gui_Device, semaphore_count);
-  gui_RenderCompleteSemaphores(&gui_Device, semaphore_count);
+  gui_ImageAcquiredSemaphores.init(&gui_Device, semaphore_count);
+  gui_RenderCompleteSemaphores.init(&gui_Device, semaphore_count);
   fmt::println("gui_ImageAcquiredSemaphores&gui_RenderCompleteSemaphores created");
 
   // --------------------- Camera ------------------------
@@ -322,7 +329,6 @@ int SngoEngine::Imgui::ImguiApplication::init()
           vkDeviceWaitIdle(gui_Device.logical_device);
 
           gui_SwapChain.Recreate_Self(gui_Surface.window);
-          gui_SwapChain.Create_FrameBuffers({}, &main_RenderPass);
 
           gui_SwapChainRebuild = false;
         }
@@ -458,9 +464,6 @@ int SngoEngine::Imgui::ImguiApplication::init()
     }
   check_vk_result(vkDeviceWaitIdle(gui_Device.logical_device));
 
-  gui_ImageAcquiredSemaphores.destroyer();
-  gui_RenderCompleteSemaphores.destroyer();
-  gui_DescriptorPool.destroyer();
   // gui_SwapChain.CleanUp_Self();
   fmt::println("destory end");
 
@@ -524,7 +527,7 @@ void SngoEngine::Imgui::ImguiApplication::Render_Frame(ImDrawData* draw_data,
 
   render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   render_pass_begin_info.renderPass = main_RenderPass.render_pass;
-  render_pass_begin_info.framebuffer = gui_SwapChain.frame_buffers[imageIndex];
+  render_pass_begin_info.framebuffer = swapchain_framebuffers[imageIndex];
 
   render_pass_begin_info.renderArea.offset = {0, 0};
   render_pass_begin_info.renderArea.extent = gui_SwapChain.extent;
@@ -721,7 +724,7 @@ void SngoEngine::Imgui::ImguiApplication::construct_pipeline()
                                                      depth_stencil,
                                                      color_blend};
 
-  model_GraphicPipeline(
+  model_GraphicPipeline.init(
       &gui_Device, &model_Pipelinelayout, &main_RenderPass, shader_stages, &pipeline_info, 0);
 
   auto sky_box_attribute_descriptions =
@@ -734,18 +737,18 @@ void SngoEngine::Imgui::ImguiApplication::construct_pipeline()
   pipeline_info.depth_stencil = Core::Data::DEFAULT_DEPTHSTENCIL_DISABLED_INFO();
   pipeline_info.rasterizer.cullMode = VK_CULL_MODE_FRONT_BIT;
 
-  skybox_GraphicPipeline(&gui_Device,
-                         &skybox_Pipelinelayout,
-                         &main_RenderPass,
-                         skybox_shader_stages,
-                         &pipeline_info,
-                         0);
+  skybox_GraphicPipeline.init(&gui_Device,
+                              &skybox_Pipelinelayout,
+                              &main_RenderPass,
+                              skybox_shader_stages,
+                              &pipeline_info,
+                              0);
 }
 
 void SngoEngine::Imgui::ImguiApplication::load_model()
 {
-  old_school(MAIN_OLD_SCHOOL, &gui_Device, &gui_CommandPool);
-  sky_box(CUBEMAP_FILE, CUBEMAP_TEXTURE, &gui_Device, &gui_CommandPool);
+  old_school.init(MAIN_OLD_SCHOOL, &gui_Device, &gui_CommandPool);
+  sky_box.init(CUBEMAP_FILE, CUBEMAP_TEXTURE, &gui_Device, &gui_CommandPool);
 
   sky_box.generate_descriptor(uni_pool, skybox_setlayout, skybox_set, 1);
 }
@@ -799,4 +802,35 @@ void SngoEngine::Imgui::ImguiApplication::create_IMGUI_DescriptorPoor()
           gui_Device.logical_device, &pool_info, nullptr, &gui_DescriptorPool.descriptor_pool)
       != VK_SUCCESS)
     throw std::runtime_error("Create DescriptorPool for m_ImGuiDescriptorPool failed!");
+}
+
+void SngoEngine::Imgui::ImguiApplication::destroyer()
+{
+  check_vk_result(vkDeviceWaitIdle(gui_Device.logical_device));
+  gui_Fences.destroyer();
+  gui_ImageAcquiredSemaphores.destroyer();
+  gui_RenderCompleteSemaphores.destroyer();
+
+  model_GraphicPipeline.destroyer();
+  model_Pipelinelayout.destroyer();
+  skybox_GraphicPipeline.destroyer();
+  skybox_Pipelinelayout.destroyer();
+
+  uni_setlayout.destroyer();
+  skybox_setlayout.destroyer();
+  gui_DescriptorPool.destroyer();
+  uni_pool.destroyer();
+
+  old_school.destroyer();
+  sky_box.destroyer();
+  gui_CommandPool.destroyer();
+
+  gui_SwapChain.destroyer();
+  swapchain_framebuffers.destroyer();
+
+  gui_Device.destroyer();
+  gui_Surface.destroyer();
+
+  gui_DebugMessenger.destroyer();
+  gui_Instance.destroyer();
 }

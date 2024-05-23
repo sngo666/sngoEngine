@@ -10,19 +10,25 @@
 namespace SngoEngine::Core::Siganlis
 {
 
+//===========================================================================================================================
+// EngineSemaphores
+//===========================================================================================================================
+
 struct EngineSemaphores
 {
   EngineSemaphores() = default;
   EngineSemaphores(EngineSemaphores&&) noexcept = default;
   EngineSemaphores& operator=(EngineSemaphores&&) noexcept = default;
-  EngineSemaphores(const Device::LogicalDevice::EngineDevice* _device,
-                   size_t _size,
-                   const VkAllocationCallbacks* alloc = nullptr);
-  void operator()(const Device::LogicalDevice::EngineDevice* _device,
-                  size_t _size,
-                  const VkAllocationCallbacks* alloc = nullptr);
-  template <typename U>
-  U& operator=(U&) = delete;
+  template <typename... Args>
+  explicit EngineSemaphores(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
+  template <typename... Args>
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
   ~EngineSemaphores()
   {
     destroyer();
@@ -42,7 +48,7 @@ struct EngineSemaphores
  private:
   void creator(const Device::LogicalDevice::EngineDevice* _device,
                size_t _size,
-               const VkAllocationCallbacks* alloc);
+               const VkAllocationCallbacks* alloc = nullptr);
   const VkAllocationCallbacks* Alloc{};
 };
 

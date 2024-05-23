@@ -1,5 +1,5 @@
 
-#include "Instance.h"
+#include "Instance.hpp"
 
 #include <vulkan/vulkan_core.h>
 
@@ -61,7 +61,7 @@ bool SngoEngine::Core::Instance::IsExtension_Available(
 }
 
 std::vector<const char*> SngoEngine::Core::Instance::Get_Required_Extensions(
-    const std::vector<const char*>& required_extensions)
+    const std::vector<std::string>& required_extensions)
 {
   std::vector<const char*> extensions{};
 
@@ -73,9 +73,9 @@ std::vector<const char*> SngoEngine::Core::Instance::Get_Required_Extensions(
 
   for (auto required_extension : required_extensions)
     {
-      if (IsExtension_Available(properties, required_extension))
+      if (IsExtension_Available(properties, required_extension.c_str()))
         {
-          extensions.push_back(required_extension);
+          extensions.push_back(required_extension.c_str());
         }
     }
 
@@ -109,42 +109,13 @@ VkDebugUtilsMessengerCreateInfoEXT SngoEngine::Core::Instance::Populate_Debug_Cr
   return create_info;
 }
 
-SngoEngine::Core::Instance::EngineInstance::EngineInstance(
-    const std::string& _app_name,
-    const std::vector<const char*>& Instance_Exts,
-    const VkAllocationCallbacks* _alloc)
-    : EngineInstance()
-{
-  creator(_app_name, Instance_Exts, _alloc);
-}
+//===========================================================================================================================
+// EngineInstance
+//===========================================================================================================================
 
-void SngoEngine::Core::Instance::EngineInstance::operator()(
-    const std::string& _app_name,
-    const std::vector<const char*>& Instance_Exts,
-    const VkAllocationCallbacks* _alloc)
-{
-  creator(_app_name, Instance_Exts, _alloc);
-}
-
-// SngoEngine::Core::Instance::EngineInstance&
-// SngoEngine::Core::Instance::EngineInstance::operator=(
-//     EngineInstance&& _ins) noexcept
-// {
-//   instance = _ins.instance;
-//   app_name = _ins.app_name;
-//   Alloc = _ins.AllocationCallbacks();
-//   _ins.instance = VK_NULL_HANDLE;
-// }
-
-// SngoEngine::Core::Instance::EngineInstance::EngineInstance(EngineInstance&& _ins) noexcept
-// {
-//   *this = std::move(_ins);
-// }
-
-void SngoEngine::Core::Instance::EngineInstance::creator(
-    const std::string& _app_name,
-    const std::vector<const char*>& Instance_Exts,
-    const VkAllocationCallbacks* alloc)
+void SngoEngine::Core::Instance::EngineInstance::creator(const std::string& _app_name,
+                                                         const std::vector<std::string>& _exts,
+                                                         const VkAllocationCallbacks* alloc)
 {
   Alloc = alloc;
   app_name = _app_name;
@@ -167,7 +138,7 @@ void SngoEngine::Core::Instance::EngineInstance::creator(
   create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   create_info.pApplicationInfo = &app_info;
 
-  auto extensions{Get_Required_Extensions(Instance_Exts)};
+  auto extensions{Get_Required_Extensions(_exts)};
 #ifdef VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME
   uint32_t properties_count;
   std::vector<VkExtensionProperties> properties{};
@@ -217,7 +188,7 @@ std::string SngoEngine::Core::Instance::EngineInstance::appName()
     }
 }
 
-const VkAllocationCallbacks* SngoEngine::Core::Instance::EngineInstance::AllocationCallbacks()
+void SngoEngine::Core::Instance::EngineInstance::destroyer()
 {
-  return Alloc;
+  vkDestroyInstance(instance, Alloc);
 }

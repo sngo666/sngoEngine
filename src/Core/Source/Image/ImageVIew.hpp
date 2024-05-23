@@ -29,15 +29,15 @@ struct EngineImageView
     creator(_device, args...);
   }
   template <typename... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }
   ~EngineImageView()
   {
-    if (image_view != VK_NULL_HANDLE)
-      vkDestroyImageView(device->logical_device, image_view, Alloc);
+    destroyer();
   }
+  void destroyer();
 
   VkImageView image_view{};
   const Device::LogicalDevice::EngineDevice* device{};
@@ -65,7 +65,7 @@ struct EngineImageViews
   }
 
   template <typename... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }

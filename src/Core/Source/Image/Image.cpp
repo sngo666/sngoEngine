@@ -359,7 +359,7 @@ void SngoEngine::Core::Source::Image::EngineImage::creator(
 
 void SngoEngine::Core::Source::Image::EngineImage::destroyer()
 {
-  if (image != VK_NULL_HANDLE)
+  if (device)
     {
       vkDestroyImage(device->logical_device, image, Alloc);
       vkFreeMemory(device->logical_device, image_memory, Alloc);
@@ -616,12 +616,12 @@ void SngoEngine::Core::Source::Image::EngineTextureImage::CreateWith_Staging(
 
   Data::ImageViewCreate_Info _info{image, used_format, subresourceRange};
   _info.subresourceRange.levelCount = mip_levels;
-  view(device, _info, Alloc);
+  view.init(device, _info, Alloc);
 
   // create image sampler
 
   auto sampler_info{Get_Default_Sampler(device, static_cast<float>(mip_levels))};
-  sampler(device, sampler_info, Alloc);
+  sampler.init(device, sampler_info, Alloc);
 
   img.image = VK_NULL_HANDLE;
   img.image_memory = VK_NULL_HANDLE;
@@ -678,13 +678,13 @@ void SngoEngine::Core::Source::Image::EngineTextureImage::CreateWithout_Staging(
   {
     Data::ImageViewCreate_Info _info{image, used_format, subresourceRange};
     _info.subresourceRange.levelCount = mip_levels;
-    view(device, _info, Alloc);
+    view.init(device, _info, Alloc);
   }
 
   // create image sampler
   {
     auto sampler_info{Get_Default_Sampler(device, static_cast<float>(mip_levels))};
-    sampler(device, sampler_info, Alloc);
+    sampler.init(device, sampler_info, Alloc);
   }
 
   img.image = VK_NULL_HANDLE;
@@ -713,7 +713,7 @@ void SngoEngine::Core::Source::Image::Get_EmptyTextureImg(
   unsigned char* buffer = new unsigned char[bufferSize];
   memset(buffer, 0, bufferSize);
 
-  img(_device, _pool, EnginePixelData{buffer, width, height, bufferSize});
+  img.init(_device, _pool, EnginePixelData{buffer, width, height, bufferSize});
 
   delete[] buffer;
 }
@@ -853,11 +853,11 @@ void SngoEngine::Core::Source::Image::EngineCubeTexture::CreateCubeWith_Staging(
           VK_IMAGE_TILING_OPTIMAL,
           _usage,
           mip_levels,
-          VK_SAMPLE_COUNT_1_BIT,
           6,
-          VK_IMAGE_TYPE_2D,
+          VK_SAMPLE_COUNT_1_BIT,
           VK_IMAGE_LAYOUT_UNDEFINED,
-          VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT},
+          VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
+          VK_IMAGE_TYPE_2D},
       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT};
 
   Transition_ImageLayout(device,
@@ -888,12 +888,12 @@ void SngoEngine::Core::Source::Image::EngineCubeTexture::CreateCubeWith_Staging(
   _info.subresourceRange.levelCount = mip_levels;
   _info.subresourceRange.layerCount = 6;
   _info.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
-  view(device, _info, Alloc);
+  view.init(device, _info, Alloc);
 
   // create image sampler
 
   auto sampler_info{Get_CubeTex_Sampler(device, static_cast<float>(mip_levels))};
-  sampler(device, sampler_info, Alloc);
+  sampler.init(device, sampler_info, Alloc);
 
   img.image = VK_NULL_HANDLE;
   img.image_memory = VK_NULL_HANDLE;
@@ -902,7 +902,7 @@ void SngoEngine::Core::Source::Image::EngineCubeTexture::CreateCubeWith_Staging(
 
 void SngoEngine::Core::Source::Image::EngineCubeTexture::destroyer()
 {
-  if (image != VK_NULL_HANDLE)
+  if (device)
     {
       vkDestroyImage(device->logical_device, image, Alloc);
       vkFreeMemory(device->logical_device, image_memory, Alloc);

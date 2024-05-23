@@ -65,13 +65,13 @@ void SngoEngine::Core::Source::Model::gltf_LoadImage(
         }
       // Load texture from image buffer
 
-      images[i](device,
-                _pool,
-                Image::EnginePixelData{buffer,
-                                       static_cast<unsigned int>(glTFImage.width),
-                                       static_cast<unsigned int>(glTFImage.height),
-                                       bufferSize},
-                alloc);
+      images[i].init(device,
+                     _pool,
+                     Image::EnginePixelData{buffer,
+                                            static_cast<unsigned int>(glTFImage.width),
+                                            static_cast<unsigned int>(glTFImage.height),
+                                            bufferSize},
+                     alloc);
 
       if (deleteBuffer)
         {
@@ -248,7 +248,7 @@ void SngoEngine::Core::Source::Model::GltfMaterial::create_set(VkDescriptorPool 
                                                                VkDescriptorSetLayout _layout,
                                                                uint32_t bingding_flags)
 {
-  descriptor_set(device, _layout, _pool);
+  descriptor_set.init(device, _layout, _pool);
   std::vector<VkWriteDescriptorSet> writes{};
   VkWriteDescriptorSet writeDescriptorSet{};
 
@@ -617,8 +617,8 @@ void SngoEngine::Core::Source::Model::EngineGltfModel::load_nodes(
         }
     }
 
-  model.vertex_buffer(_device, _pool, _device->graphics_queue, vertex_data, Alloc);
-  model.index_buffer(_device, _pool, _device->graphics_queue, index_data, Alloc);
+  model.vertex_buffer.init(_device, _pool, _device->graphics_queue, vertex_data, Alloc);
+  model.index_buffer.init(_device, _pool, _device->graphics_queue, index_data, Alloc);
 }
 
 void SngoEngine::Core::Source::Model::EngineGltfModel::load_skins(tinygltf::Model& input)
@@ -744,8 +744,8 @@ void SngoEngine::Core::Source::Model::EngineCubeMap::creator(
   device = _device;
   Alloc = alloc;
 
-  cube_img(device, _pool->command_pool, boxTexture_file, Alloc);
-  model(gltf_file, device, _pool);
+  cube_img.init(device, _pool->command_pool, boxTexture_file, Alloc);
+  model.init(gltf_file, device, _pool);
 }
 
 void SngoEngine::Core::Source::Model::EngineCubeMap::generate_descriptor(
@@ -758,8 +758,8 @@ void SngoEngine::Core::Source::Model::EngineCubeMap::generate_descriptor(
   bindings.push_back(Descriptor::GetLayoutBinding(
       VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, binding));
 
-  _layout(device, bindings, Alloc);
-  _set(device, _layout.layout, _pool.descriptor_pool);
+  _layout.init(device, bindings, Alloc);
+  _set.init(device, _layout.layout, _pool.descriptor_pool);
 
   std::vector<VkWriteDescriptorSet> writes{};
   VkWriteDescriptorSet writeDescriptorSet{};
@@ -773,4 +773,10 @@ void SngoEngine::Core::Source::Model::EngineCubeMap::generate_descriptor(
   writes.push_back(writeDescriptorSet);
 
   _set.updateWrite(writes);
+}
+
+void SngoEngine::Core::Source::Model::EngineCubeMap::destroyer()
+{
+  model.destroyer();
+  cube_img.destroyer();
 }

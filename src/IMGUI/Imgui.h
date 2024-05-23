@@ -9,11 +9,12 @@
 
 #include "src/Core/Device/LogicalDevice.hpp"
 #include "src/Core/Device/PhysicalDevice.hpp"
-#include "src/Core/Instance/DebugMessenger.h"
-#include "src/Core/Instance/Instance.h"
+#include "src/Core/Instance/DebugMessenger.hpp"
+#include "src/Core/Instance/Instance.hpp"
+#include "src/Core/Render/FrameBuffer.hpp"
 #include "src/Core/Render/RenderPass.hpp"
-#include "src/Core/Signalis/Fence.h"
-#include "src/Core/Signalis/Semaphore.h"
+#include "src/Core/Signalis/Fence.hpp"
+#include "src/Core/Signalis/Semaphore.hpp"
 #include "src/Core/Source/Buffer/CommandBuffer.hpp"
 #include "src/Core/Source/Buffer/Descriptor.hpp"
 #include "src/Core/Source/Buffer/UniformBuffer.hpp"
@@ -21,7 +22,7 @@
 #include "src/Core/Source/Model/Camera.hpp"
 #include "src/Core/Source/Model/Model.hpp"
 #include "src/Core/Source/Pipeline/Pipeline.hpp"
-#include "src/Core/Source/SwapChain/SwapChain.h"
+#include "src/Core/Source/SwapChain/SwapChain.hpp"
 #include "src/GLFWEXT/Surface.h"
 #include "src/IMGUI/include/imgui_impl_vulkan.h"
 #include "vulkan/vulkan_core.h"
@@ -39,7 +40,7 @@ const std::string SKYBOX_FragmentShader_code{"./shader/frag_shader_cubemap.fs"};
 
 const std::string MAIN_OLD_SCHOOL{"./source/old_school/scene.gltf"};
 const std::string CUBEMAP_FILE{"./source/cube.gltf"};
-const std::string CUBEMAP_TEXTURE{"./textures/cubemap_vulkan.ktx"};
+const std::string CUBEMAP_TEXTURE{"./textures/cubemap_space.ktx"};
 
 using Glfw_Err_CallBack = void (*)(int, const char*);
 static void check_vk_result(VkResult err);
@@ -50,17 +51,17 @@ const std::vector<const char*> IMGUI_REQIRED_INSTANCE_EXTS = {
     VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
     VK_EXT_DEBUG_REPORT_EXTENSION_NAME};
 
-const std::vector<const char*> IMGUI_REQUIRED_DEVICE_LAYERS{
+const std::vector<std::string> IMGUI_REQUIRED_DEVICE_LAYERS{
     "VK_LAYER_KHRONOS_validation",
 };
 
 const std::vector<const char*> validation_layers{"VK_LAYER_KHRONOS_validation"};
 
-const std::vector<const char*> IMGUI_REQUIRED_DEVICE_EXTS = {
+const std::vector<std::string> IMGUI_REQUIRED_DEVICE_EXTS = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 };
 
-std::vector<SngoEngine::Core::Data::SubpassDependency_Info> GUI_SUBPASS_DEPENDENCY();
+std::vector<VkSubpassDependency> GUI_SUBPASS_DEPENDENCY();
 
 static Glfw_Err_CallBack Default_Glfw_Error_Callback{[](int error, const char* description) {
   throw std::runtime_error("[err] Glfw wrong: " + std::to_string(error) + description);
@@ -69,6 +70,10 @@ static Glfw_Err_CallBack Default_Glfw_Error_Callback{[](int error, const char* d
 struct ImguiApplication
 {
   ImguiApplication() = default;
+  ~ImguiApplication()
+  {
+    destroyer();
+  }
 
   Core::Instance::EngineInstance gui_Instance;
   GlfwExt::EngineGlfwSurface gui_Surface;
@@ -77,6 +82,7 @@ struct ImguiApplication
   Core::Device::PhysicalDevice::EnginePhysicalDevice gui_PhysicalDevice{};
   Core::Source::Descriptor::EngineDescriptorPool gui_DescriptorPool{};
   Core::Source::SwapChain::EngineSwapChain gui_SwapChain;
+  Core::Render::EngineFrameBuffers swapchain_framebuffers;
 
   Core::Render::RenderPass::EngineRenderPass main_RenderPass{};
   Core::Source::DepthResource::EngineDepthResource gui_DepthResource;
@@ -130,6 +136,7 @@ struct ImguiApplication
   void load_model();
   void update_uniform_buffer(uint32_t current_frame);
   void create_IMGUI_DescriptorPoor();
+  void destroyer();
 
   std::string window_name{"imgui_pbrt Window"};
   VkExtent2D mainWindow_extent{1280, 720};

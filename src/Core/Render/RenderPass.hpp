@@ -18,6 +18,10 @@ SngoEngine::Core::Data::AttachmentData_Info DEFAULT_ATTACHMENTDATA(
     VkFormat format,
     VkPhysicalDevice physical_device);
 
+//===========================================================================================================================
+// EngineRenderPass
+//===========================================================================================================================
+
 struct EngineRenderPass
 {
   EngineRenderPass() = default;
@@ -30,29 +34,27 @@ struct EngineRenderPass
     creator(_device, args...);
   }
   template <typename... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }
-  template <typename U>
-  U& operator=(U&) = delete;
   ~EngineRenderPass()
   {
-    if (render_pass != VK_NULL_HANDLE)
-      vkDestroyRenderPass(device->logical_device, render_pass, Alloc);
+    destroyer();
   }
+  void destroyer();
 
   VkRenderPass render_pass{};
   const Device::LogicalDevice::EngineDevice* device{};
 
  private:
   void creator(const Device::LogicalDevice::EngineDevice* _device,
-               const std::vector<Data::SubpassDependency_Info>& _dependency,
+               const std::vector<VkSubpassDependency>& _dependency,
                const VkSubpassDescription* _subpass,
                std::vector<VkAttachmentDescription>& _attachments,
                const VkAllocationCallbacks* alloc = nullptr);
   void creator(const Device::LogicalDevice::EngineDevice* _device,
-               const std::vector<Data::SubpassDependency_Info>& _dependency,
+               const std::vector<VkSubpassDependency>& _dependency,
                const std::vector<VkSubpassDescription>& _subpasses,
                std::vector<VkAttachmentDescription>& _attachments,
                const VkAllocationCallbacks* alloc = nullptr);

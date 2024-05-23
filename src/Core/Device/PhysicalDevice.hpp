@@ -7,7 +7,7 @@
 #include <unordered_set>
 
 #include "src/Core/Data.h"
-#include "src/Core/Instance/Instance.h"
+#include "src/Core/Instance/Instance.hpp"
 #include "src/GLFWEXT/Surface.h"
 
 namespace SngoEngine::Core::Device::PhysicalDevice
@@ -41,22 +41,18 @@ struct EnginePhysicalDevice
   {
     creator(args...);
   }
-
   template <class... Args>
-  void operator()(Args... args)
+  void init(Args... args)
   {
     creator(args...);
   }
-
   explicit operator VkPhysicalDevice() const
   {
     return physical_device;
   }
+  ~EnginePhysicalDevice() = default;
 
-  template <typename U>
-  U& operator=(U&) = delete;
-
-  VkPhysicalDevice physical_device{VK_NULL_HANDLE};
+  VkPhysicalDevice physical_device{};
   const Instance::EngineInstance* instance{};
   VkSurfaceKHR surface{};
 

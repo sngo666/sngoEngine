@@ -7,7 +7,7 @@
 #include <string>
 #include <utility>
 
-#include "src/Core/Instance/Instance.h"
+#include "src/Core/Instance/Instance.hpp"
 #include "src/Core/Utils/Utils.hpp"
 
 #define VK_USE_PLATFORM_WIN32_KHR

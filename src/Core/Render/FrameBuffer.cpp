@@ -1,4 +1,4 @@
-#include "FrameBuffer.h"
+#include "FrameBuffer.hpp"
 
 #include <vulkan/vulkan_core.h>
 
@@ -7,18 +7,24 @@
 
 #include "src/Core/Device/LogicalDevice.hpp"
 
-SngoEngine::Core::Render::EngineFrameBuffer::EngineFrameBuffer(
+//===========================================================================================================================
+// EngineFrameBuffer
+//===========================================================================================================================
+
+void SngoEngine::Core::Render::EngineFrameBuffer::creator(
     const SngoEngine::Core::Device::LogicalDevice::EngineDevice* _device,
-    const VkRenderPass* _render_pass,
+    VkRenderPass _render_pass,
     const std::vector<VkImageView>& _attachments,
     VkExtent2D _extent,
     uint32_t _layers,
     const VkAllocationCallbacks* alloc)
-    : frame_buffer(VK_NULL_HANDLE), device(_device), Alloc(alloc)
 {
+  device = _device;
+  Alloc = alloc;
+
   VkFramebufferCreateInfo frame_buffer_info{};
   frame_buffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-  frame_buffer_info.renderPass = *_render_pass;
+  frame_buffer_info.renderPass = _render_pass;
   frame_buffer_info.attachmentCount = _attachments.size();
   frame_buffer_info.pAttachments = _attachments.data();
   frame_buffer_info.width = _extent.width;
@@ -32,82 +38,92 @@ SngoEngine::Core::Render::EngineFrameBuffer::EngineFrameBuffer(
     }
 }
 
-SngoEngine::Core::Render::EngineFrameBuffer::EngineFrameBuffer(
+void SngoEngine::Core::Render::EngineFrameBuffer::creator(
     const SngoEngine::Core::Device::LogicalDevice::EngineDevice* _device,
     Data::FrameBufferCreate_Info _info,
     const VkAllocationCallbacks* alloc)
-    : frame_buffer(VK_NULL_HANDLE), device(_device), Alloc(alloc)
 {
+  device = _device;
+  Alloc = alloc;
+
   if (vkCreateFramebuffer(device->logical_device, &_info, Alloc, &frame_buffer) != VK_SUCCESS)
     {
       throw std::runtime_error("failed to create frame buffer!");
     }
 }
 
-SngoEngine::Core::Render::EngineFrameBuffers::EngineFrameBuffers(
-    const SngoEngine::Core::Device::LogicalDevice::EngineDevice* _device,
-    const VkRenderPass* _render_pass,
-    const std::vector<std::vector<VkImageView>>& _attachments,
-    VkExtent2D _extent,
-    uint32_t _layers,
-    const VkAllocationCallbacks* alloc)
-    : SngoEngine::Core::Render::EngineFrameBuffers()
+void SngoEngine::Core::Render::EngineFrameBuffer::destroyer()
 {
-  creator(_device, _render_pass, _attachments, _extent, _layers, alloc);
+  if (!frame_buffer && device)
+    vkDestroyFramebuffer(device->logical_device, frame_buffer, Alloc);
 }
 
-void SngoEngine::Core::Render::EngineFrameBuffers::operator()(
-    const SngoEngine::Core::Device::LogicalDevice::EngineDevice* _device,
-    const VkRenderPass* _render_pass,
-    const std::vector<std::vector<VkImageView>>& _attachments,
-    VkExtent2D _extent,
-    uint32_t _layers,
-    const VkAllocationCallbacks* alloc)
-{
-  creator(_device, _render_pass, _attachments, _extent, _layers, alloc);
-}
+//===========================================================================================================================
+// EngineFrameBuffers
+//===========================================================================================================================
 
 void SngoEngine::Core::Render::EngineFrameBuffers::creator(
     const SngoEngine::Core::Device::LogicalDevice::EngineDevice* _device,
-    const VkRenderPass* _render_pass,
-    const std::vector<std::vector<VkImageView>>& _attachments,
-    VkExtent2D _extent,
-    uint32_t _layers,
+    const std::vector<VkFramebufferCreateInfo>& _infos,
     const VkAllocationCallbacks* alloc)
 {
-  for (auto& buffer : frame_buffers)
-    if (buffer != VK_NULL_HANDLE)
-      vkDestroyFramebuffer(device->logical_device, buffer, Alloc);
+  destroyer();
   Alloc = alloc;
   device = _device;
 
-  for (auto attch : _attachments)
+  frame_buffers.resize(_infos.size());
+
+  for (size_t i = 0; i < _infos.size(); i++)
     {
-      VkFramebuffer frame_buffer;
-
-      VkFramebufferCreateInfo frame_buffer_info{};
-      frame_buffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-      frame_buffer_info.renderPass = *_render_pass;
-      frame_buffer_info.attachmentCount = attch.size();
-      frame_buffer_info.pAttachments = attch.data();
-      frame_buffer_info.width = _extent.width;
-      frame_buffer_info.height = _extent.height;
-      frame_buffer_info.layers = _layers;
-
-      if (vkCreateFramebuffer(device->logical_device, &frame_buffer_info, Alloc, &frame_buffer)
+      if (vkCreateFramebuffer(device->logical_device, &_infos[i], Alloc, &frame_buffers[i])
           != VK_SUCCESS)
         {
           throw std::runtime_error("failed to create frame buffer!");
         }
-
-      frame_buffers.push_back(frame_buffer);
     }
 }
+
+void SngoEngine::Core::Render::EngineFrameBuffers::creator(
+    const SngoEngine::Core::Device::LogicalDevice::EngineDevice* _device,
+    VkRenderPass _render_pass,
+    const std::vector<std::vector<VkImageView>>& _attachments,
+    VkExtent2D _extent,
+    uint32_t _layers,
+    const VkAllocationCallbacks* alloc)
+{
+  destroyer();
+
+  Alloc = alloc;
+  device = _device;
+
+  frame_buffers.resize(_attachments.size());
+
+  for (size_t i = 0; i < _attachments.size(); i++)
+
+    {
+      VkFramebufferCreateInfo frame_buffer_info{};
+      frame_buffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+      frame_buffer_info.renderPass = _render_pass;
+      frame_buffer_info.attachmentCount = _attachments[i].size();
+      frame_buffer_info.pAttachments = _attachments[i].data();
+      frame_buffer_info.width = _extent.width;
+      frame_buffer_info.height = _extent.height;
+      frame_buffer_info.layers = _layers;
+
+      if (vkCreateFramebuffer(device->logical_device, &frame_buffer_info, Alloc, &frame_buffers[i])
+          != VK_SUCCESS)
+        {
+          throw std::runtime_error("failed to create frame buffer!");
+        }
+    }
+}
+
 void SngoEngine::Core::Render::EngineFrameBuffers::destroyer()
 {
   for (auto& buffer : frame_buffers)
-    if (!buffer)
+    if (!buffer && device)
       vkDestroyFramebuffer(device->logical_device, buffer, Alloc);
+
   frame_buffers.clear();
 }
 

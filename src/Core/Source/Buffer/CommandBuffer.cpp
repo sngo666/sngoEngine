@@ -6,22 +6,6 @@
 #include <cstdint>
 #include <stdexcept>
 
-SngoEngine::Core::Source::Buffer::EngineCommandPool::EngineCommandPool(
-    const Device::LogicalDevice::EngineDevice* _device,
-    Data::CommandPoolCreate_Info _info,
-    const VkAllocationCallbacks* alloc)
-    : EngineCommandPool()
-{
-  creator(_device, _info, alloc);
-}
-
-void SngoEngine::Core::Source::Buffer::EngineCommandPool::operator()(
-    const Device::LogicalDevice::EngineDevice* _device,
-    Data::CommandPoolCreate_Info _info,
-    const VkAllocationCallbacks* alloc)
-{
-  creator(_device, _info, alloc);
-}
 void SngoEngine::Core::Source::Buffer::EngineCommandPool::destroyer()
 {
   if (command_pool != VK_NULL_HANDLE)
@@ -101,6 +85,13 @@ std::vector<VkCommandPool>::iterator SngoEngine::Core::Source::Buffer::EngineCom
   return command_pools.end();
 }
 
+void SngoEngine::Core::Source::Buffer::EngineCommandPools::destroyer()
+{
+  for (auto& pool : command_pools)
+    if (pool != VK_NULL_HANDLE)
+      vkDestroyCommandPool(device->logical_device, pool, Alloc);
+}
+
 //===========================================================================================================================
 // EngineOnceCommandBuffer
 //===========================================================================================================================
@@ -156,15 +147,6 @@ void SngoEngine::Core::Source::Buffer::EngineOnceCommandBuffer::end_buffer()
   destroyer();
 }
 
-SngoEngine::Core::Source::Buffer::EngineOnceCommandBuffer::EngineOnceCommandBuffer(
-    const Device::LogicalDevice::EngineDevice* _device,
-    VkCommandPool _command_pool,
-    VkQueue _queue)
-    : SngoEngine::Core::Source::Buffer::EngineOnceCommandBuffer()
-{
-  creator(_device, _command_pool, _queue);
-}
-
 void SngoEngine::Core::Source::Buffer::EngineOnceCommandBuffer::creator(
     const Device::LogicalDevice::EngineDevice* _device,
     VkCommandPool _command_pool,
@@ -179,21 +161,6 @@ void SngoEngine::Core::Source::Buffer::EngineOnceCommandBuffer::creator(
 //===========================================================================================================================
 // EngineCommandBuffer
 //===========================================================================================================================
-
-SngoEngine::Core::Source::Buffer::EngineCommandBuffer::EngineCommandBuffer(
-    const Device::LogicalDevice::EngineDevice* _device,
-    VkCommandPool _command_pool)
-    : SngoEngine::Core::Source::Buffer::EngineCommandBuffer()
-{
-  creator(_device, _command_pool);
-}
-
-void SngoEngine::Core::Source::Buffer::EngineCommandBuffer::operator()(
-    const Device::LogicalDevice::EngineDevice* _device,
-    VkCommandPool _command_pool)
-{
-  creator(_device, _command_pool);
-}
 
 void SngoEngine::Core::Source::Buffer::EngineCommandBuffer::creator(
     const Device::LogicalDevice::EngineDevice* _device,
@@ -216,26 +183,15 @@ void SngoEngine::Core::Source::Buffer::EngineCommandBuffer::creator(
       throw std::runtime_error("failed to create command buffer!");
     }
 }
+
+void SngoEngine::Core::Source::Buffer::EngineCommandBuffer::destroyer()
+{
+  if (command_pool)
+    vkFreeCommandBuffers(device->logical_device, command_pool, 1, &command_buffer);
+}
 //===========================================================================================================================
 // EngineCommandBuffers
 //===========================================================================================================================
-
-SngoEngine::Core::Source::Buffer::EngineCommandBuffers::EngineCommandBuffers(
-    const Device::LogicalDevice::EngineDevice* _device,
-    VkCommandPool _command_pool,
-    size_t _size)
-    : SngoEngine::Core::Source::Buffer::EngineCommandBuffers()
-{
-  creator(_device, _command_pool, _size);
-}
-
-void SngoEngine::Core::Source::Buffer::EngineCommandBuffers::operator()(
-    const Device::LogicalDevice::EngineDevice* _device,
-    VkCommandPool _command_pool,
-    size_t _size)
-{
-  creator(_device, _command_pool, _size);
-}
 
 void SngoEngine::Core::Source::Buffer::EngineCommandBuffers::creator(
     const Device::LogicalDevice::EngineDevice* _device,
@@ -288,6 +244,12 @@ SngoEngine::Core::Source::Buffer::EngineCommandBuffers::begin()
 std::vector<VkCommandBuffer>::iterator SngoEngine::Core::Source::Buffer::EngineCommandBuffers::end()
 {
   return command_buffers.end();
+}
+
+void SngoEngine::Core::Source::Buffer::EngineCommandBuffers::destroyer()
+{
+  if (command_pool)
+    vkFreeCommandBuffers(device->logical_device, command_pool, size(), command_buffers.data());
 }
 
 void SngoEngine::Core::Source::Buffer::EngineCommandBuffers::recreate(size_t n,

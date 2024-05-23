@@ -50,24 +50,9 @@ SngoEngine::Core::Source::Buffer::Generate_BufferMemoryAllocate_Info(
               device->pPD->physical_device, memRequirements.memoryTypeBits, properties)};
 }
 
-// SngoEngine::Core::Source::Buffer::EngineBuffer::EngineBuffer(
-//     const Device::LogicalDevice::EngineDevice* _device,
-//     Data::BufferCreate_Info _buffer_info,
-//     VkMemoryPropertyFlags properties,
-//     const VkAllocationCallbacks* alloc)
-//     : SngoEngine::Core::Source::Buffer::EngineBuffer()
-// {
-//   creator(_device, _buffer_info, properties, alloc);
-// }
-
-// void SngoEngine::Core::Source::Buffer::EngineBuffer::operator()(
-//     const Device::LogicalDevice::EngineDevice* _device,
-//     Data::BufferCreate_Info _buffer_info,
-//     VkMemoryPropertyFlags properties,
-//     const VkAllocationCallbacks* alloc)
-// {
-//   creator(_device, _buffer_info, properties, alloc);
-// }
+//===========================================================================================================================
+// EngineBuffer
+//===========================================================================================================================
 
 void SngoEngine::Core::Source::Buffer::EngineBuffer::creator(
     const Device::LogicalDevice::EngineDevice* _device,

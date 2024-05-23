@@ -192,19 +192,19 @@ struct EngineObjModel
     Alloc = alloc;
 
     auto _size(Text_file.size());
-    descriptor_pool(device, max_sets, _size, Alloc);
+    descriptor_pool.init(device, max_sets, _size, Alloc);
 
     texture_imgs.resize(Text_file.size());
     for (int i = 0; i < _size; i++)
       {
-        texture_imgs[i](device, _pool, Text_file[i], Alloc);
+        texture_imgs[i].init(device, _pool, Text_file[i], Alloc);
       }
 
     auto sampler_info{Image::Get_Default_Sampler(device)};
     texture_samplers.resize(_size);
     for (auto& sampler : texture_samplers)
       {
-        sampler(device, sampler_info, Alloc);
+        sampler.init(device, sampler_info, Alloc);
       }
 
     std::vector<VkDescriptorImageInfo> _img_infos;
@@ -224,7 +224,7 @@ struct EngineObjModel
             _uniform_buffers->operator[](i).buffer, 0, _uniform_buffers->operator[](i).range};
       }
 
-    descriptor_sets(device, _set_layout, &descriptor_pool, Macro::MAX_FRAMES_IN_FLIGHT);
+    descriptor_sets.init(device, _set_layout, &descriptor_pool, Macro::MAX_FRAMES_IN_FLIGHT);
 
     std::vector<VkWriteDescriptorSet> writes(Macro::MAX_FRAMES_IN_FLIGHT);
     for (int i = 0; i < Macro::MAX_FRAMES_IN_FLIGHT; i++)
@@ -546,7 +546,7 @@ struct Mesh
   {
     device = _device;
     uniformBlock.matrix = matrix;
-    unibuffer(device, device->graphics_queue, alloc);
+    unibuffer.init(device, device->graphics_queue, alloc);
   }
 };
 
@@ -665,9 +665,9 @@ struct EngineGltfModel
     creator(gltf_file, _device, args...);
   }
   template <typename... Args>
-  void operator()(const std::string& gltf_file,
-                  const Device::LogicalDevice::EngineDevice* _device,
-                  Args... args)
+  void init(const std::string& gltf_file,
+            const Device::LogicalDevice::EngineDevice* _device,
+            Args... args)
   {
     creator(gltf_file, _device, args...);
   }
@@ -681,6 +681,7 @@ struct EngineGltfModel
             uint32_t bindImage_set = 1,
             uint32_t renderFlags = BindImages,
             uint32_t frame_index = 0);
+  void destroyer();
 
   // ----------------------    members     -----------------------
   std::vector<GltfMaterial> materials;
@@ -732,7 +733,6 @@ struct EngineGltfModel
                 uint32_t bindImage_set,
                 uint32_t renderFlags,
                 uint32_t frame_index);
-  void destroyer();
 
   // ------------------------------ creator  --------------------------------------
 
@@ -815,20 +815,20 @@ struct EngineGltfModel
             }
         }
       const uint32_t maxSetCount = img_count + ubo_count;
-      descriptor_pool(device, maxSetCount, poolSizes, Alloc);
+      descriptor_pool.init(device, maxSetCount, poolSizes, Alloc);
     }
 
     // uniform buffer descriptor layout & sets
     {
       auto binding{Descriptor::GetLayoutBinding(
           VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0)};
-      layouts.matrices(device, std::vector<VkDescriptorSetLayoutBinding>{binding}, Alloc);
+      layouts.matrices.init(device, std::vector<VkDescriptorSetLayoutBinding>{binding}, Alloc);
 
       std::function<void(GltfNode * node, VkDescriptorSetLayout layout)> lambda_node_descript =
           [&](GltfNode* node, VkDescriptorSetLayout layout) {
             if (node->mesh)
               {
-                node->mesh->set(device, &layouts.matrices, &descriptor_pool);
+                node->mesh->set.init(device, &layouts.matrices, &descriptor_pool);
 
                 auto write{Descriptor::GetDescriptSet_Write(node->mesh->set.descriptor_set,
                                                             VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -863,7 +863,7 @@ struct EngineGltfModel
                                                          VK_SHADER_STAGE_FRAGMENT_BIT,
                                                          static_cast<uint32_t>(binding.size())));
         }
-      layouts.texture(device, binding, Alloc);
+      layouts.texture.init(device, binding, Alloc);
       for (auto& material : materials)
         {
           if (material.base_color.is_available())
@@ -898,14 +898,18 @@ struct EngineCubeMap
     creator(gltf_file, boxTexture_file, _device, args...);
   }
   template <typename... Args>
-  void operator()(const std::string& gltf_file,
-                  const std::string& boxTexture_file,
-                  const Device::LogicalDevice::EngineDevice* _device,
-                  Args... args)
+  void init(const std::string& gltf_file,
+            const std::string& boxTexture_file,
+            const Device::LogicalDevice::EngineDevice* _device,
+            Args... args)
   {
     creator(gltf_file, boxTexture_file, _device, args...);
   }
-  ~EngineCubeMap() = default;
+  ~EngineCubeMap()
+  {
+    destroyer();
+  }
+  void destroyer();
 
   void generate_descriptor(const Descriptor::EngineDescriptorPool& _pool,
                            Descriptor::EngineDescriptorSetLayout& _layout,

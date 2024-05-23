@@ -25,9 +25,9 @@ void SngoEngine::Core::Source::DepthResource::EngineDepthResource::creator(
   extent = _extent;
 
   VkFormat _format = Image::Find_DepthFormat(device->pPD->physical_device);
-  engine_Image(
+  engine_Image.init(
       device, Data::ImageCreate_Info(_format, _extent, _tiling, _usage), _properties, Alloc);
-  engine_ImageView(
+  engine_ImageView.init(
       device,
       Data::ImageViewCreate_Info{
           engine_Image.image, _format, Data::ImageSubresourceRange_Info{VK_IMAGE_ASPECT_DEPTH_BIT}},

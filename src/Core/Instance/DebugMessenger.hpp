@@ -7,7 +7,7 @@
 #include <stdexcept>
 
 #include "fmt/core.h"
-#include "src/Core/Instance/Instance.h"
+#include "src/Core/Instance/Instance.hpp"
 #include "src/Core/Macro.h"
 
 namespace SngoEngine::Core::Instance::DebugMessenger
@@ -75,37 +75,39 @@ VkDebugUtilsMessengerCreateInfoEXT Populate_Debug_CreateInfo(
     VkDebugUtilsMessageSeverityFlagsEXT severity = DEFAULT_MESSAGER_SEVERITY,
     VkDebugUtilsMessageTypeFlagsEXT type = DEFAULT_MESSAGE_TYPE);
 
-//=====================================================================================================
+//===========================================================================================================================
+// EngineDebugMessenger
+//===========================================================================================================================
 
 struct EngineDebugMessenger
 {
-  EngineDebugMessenger() : debug_messenger(), instance(nullptr), Alloc(nullptr){};
-  EngineDebugMessenger(const EngineInstance* _instance,
-                       Debug_CallBack_Lambda lambda = debug_call_back,
-                       const VkAllocationCallbacks* alloc = nullptr);
-  void operator()(const EngineInstance* _instance,
-                  Debug_CallBack_Lambda lambda = debug_call_back,
-                  const VkAllocationCallbacks* alloc = nullptr);
-
-  template <typename U>
-  U& operator=(U&) = delete;
-
+  EngineDebugMessenger() = default;
+  EngineDebugMessenger(EngineDebugMessenger&&) noexcept = default;
+  EngineDebugMessenger& operator=(EngineDebugMessenger&&) noexcept = default;
+  template <class... Args>
+  explicit EngineDebugMessenger(const EngineInstance* _instance, Args... args)
+  {
+    creator(_instance, args...);
+  }
+  template <class... Args>
+  void init(const EngineInstance* _instance, Args... args)
+  {
+    creator(_instance, args...);
+  }
   ~EngineDebugMessenger()
   {
-    if (debug_messenger != VK_NULL_HANDLE)
-      DestroyDebugUtilsMessengerEXT(instance->instance, &debug_messenger, Alloc);
+    destroyer();
   }
+  void destroyer();
 
-  const VkAllocationCallbacks* AllocationCallbacks();
-
-  VkDebugUtilsMessengerEXT debug_messenger;
-  const EngineInstance* instance;
+  VkDebugUtilsMessengerEXT debug_messenger{};
+  const EngineInstance* instance{};
 
  private:
   void creator(const EngineInstance* _instance,
                Debug_CallBack_Lambda lambda,
-               const VkAllocationCallbacks* alloc);
-  const VkAllocationCallbacks* Alloc;
+               const VkAllocationCallbacks* alloc = nullptr);
+  const VkAllocationCallbacks* Alloc{};
 };
 
 struct EngineDebugReport

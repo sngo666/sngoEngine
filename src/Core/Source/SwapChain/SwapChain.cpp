@@ -1,4 +1,4 @@
-#include "SwapChain.h"
+#include "SwapChain.hpp"
 
 #include <vulkan/vulkan_core.h>
 
@@ -8,7 +8,7 @@
 #include "src/Core/Data.h"
 #include "src/Core/Device/LogicalDevice.hpp"
 #include "src/Core/Device/PhysicalDevice.hpp"
-#include "src/Core/Render/FrameBuffer.h"
+#include "src/Core/Render/FrameBuffer.hpp"
 #include "src/Core/Render/RenderPass.hpp"
 #include "src/Core/Source/Image/ImageVIew.hpp"
 #include "src/GLFWEXT/Surface.h"
@@ -196,29 +196,17 @@ std::vector<VkImage> SngoEngine::Core::Source::SwapChain::Create_SwapChainImages
   return images;
 }
 
-SngoEngine::Core::Source::SwapChain::EngineSwapChain::EngineSwapChain(
-    const SngoEngine::Core::Device::LogicalDevice::EngineDevice* _device,
-    const SwapChainRequirement& requirements,
-    const VkAllocationCallbacks* alloc)
-    : SngoEngine::Core::Source::SwapChain::EngineSwapChain()
-{
-  creator(_device, requirements, alloc);
-}
-
-void SngoEngine::Core::Source::SwapChain::EngineSwapChain::operator()(
-    const SngoEngine::Core::Device::LogicalDevice::EngineDevice* _device,
-    const SwapChainRequirement& requirements,
-    const VkAllocationCallbacks* alloc)
-{
-  creator(_device, requirements, alloc);
-}
+//===========================================================================================================================
+// EngineSwapChain
+//===========================================================================================================================
 
 void SngoEngine::Core::Source::SwapChain::EngineSwapChain::creator(
     const SngoEngine::Core::Device::LogicalDevice::EngineDevice* _device,
     const SwapChainRequirement& requirements,
     const VkAllocationCallbacks* alloc)
 {
-  CleanUp_Self();
+  destroyer();
+
   device = _device;
   Alloc = alloc;
   image_format = requirements.surface_format.format;
@@ -230,41 +218,12 @@ void SngoEngine::Core::Source::SwapChain::EngineSwapChain::creator(
 
   Data::ImageViewCreate_Info imageViews_info{
       nullptr, image_format, Data::DEFAULT_COLOR_IMAGE_SUBRESOURCE_INFO};
-  image_views(device, images, imageViews_info, Alloc);
-}
-
-void SngoEngine::Core::Source::SwapChain::EngineSwapChain::Create_FrameBuffers(
-    const std::vector<VkImageView>& additional_views,
-    const SngoEngine::Core::Render::RenderPass::EngineRenderPass* _renderpass)
-{
-  for (auto& frame : frame_buffers)
-    {
-      vkDestroyFramebuffer(device->logical_device, frame, Alloc);
-    }
-
-  frame_buffers.resize(image_views.size());
-
-  for (size_t i = 0; i < frame_buffers.size(); i++)
-    {
-      std::vector<VkImageView> temp_attach{};
-      temp_attach.push_back(image_views[i]);
-      for (auto& addi : additional_views)
-        temp_attach.push_back(addi);
-
-      Data::FrameBufferCreate_Info info{
-          _renderpass->render_pass, temp_attach, {extent.width, extent.height, 1}};
-
-      if (vkCreateFramebuffer(device->logical_device, &info, Alloc, &frame_buffers[i])
-          != VK_SUCCESS)
-        {
-          throw std::runtime_error("failed to create frame buffer!");
-        }
-    }
+  image_views.init(device, images, imageViews_info, Alloc);
 }
 
 void SngoEngine::Core::Source::SwapChain::EngineSwapChain::Recreate_Self(GLFWwindow* window)
 {
-  CleanUp_Self();
+  destroyer();
 
   SwapChainRequirement requirements{device, window};
   swap_chain = Create_SwapChain(&requirements, device, Alloc);
@@ -276,17 +235,18 @@ void SngoEngine::Core::Source::SwapChain::EngineSwapChain::Recreate_Self(GLFWwin
   image_views = ImageView::EngineImageViews(device, images, imageViews_info, Alloc);
 }
 
-void SngoEngine::Core::Source::SwapChain::EngineSwapChain::CleanUp_Self()
+void SngoEngine::Core::Source::SwapChain::EngineSwapChain::cleanup_self()
 {
-  if (swap_chain == VK_NULL_HANDLE)
-    return;
-
-  image_views.destroyer();
-  frame_buffers.destroyer();
-  vkDestroySwapchainKHR(device->logical_device, swap_chain, Alloc);
+  destroyer();
 }
 
 void SngoEngine::Core::Source::SwapChain::EngineSwapChain::destroyer()
 {
-  CleanUp_Self();
+  if (device)
+    {
+      for (auto img : images)
+        vkDestroyImage(device->logical_device, img, Alloc);
+      image_views.destroyer();
+      vkDestroySwapchainKHR(device->logical_device, swap_chain, Alloc);
+    }
 }

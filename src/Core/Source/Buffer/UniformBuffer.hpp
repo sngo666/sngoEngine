@@ -17,9 +17,9 @@ namespace SngoEngine::Core::Source::Buffer
 
 struct UniformBuffer_Trans
 {
-  glm::mat4 projection;
-  glm::mat4 modelView;
-  glm::mat4 inverseModelview;
+  glm::mat4 projection{};
+  glm::mat4 modelView{};
+  glm::mat4 inverseModelview{};
   float lodBias = 0.0f;
 };
 
@@ -38,9 +38,8 @@ struct EngineUniformBuffer
   {
     creator(_device, args...);
   }
-
   template <typename... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }
@@ -50,7 +49,7 @@ struct EngineUniformBuffer
   }
   void destroyer()
   {
-    if (buffer != VK_NULL_HANDLE)
+    if (device)
       {
         vkDestroyBuffer(device->logical_device, buffer, Alloc);
         vkFreeMemory(device->logical_device, buffer_memory, Alloc);

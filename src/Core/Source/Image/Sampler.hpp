@@ -12,8 +12,10 @@ namespace SngoEngine::Core::Source::Image
 // EngineSampler
 //===========================================================================================================================
 
-VkSamplerCreateInfo Get_Default_Sampler(const Device::LogicalDevice::EngineDevice* device,
-                                        float mip_level = 1.0f);
+VkSamplerCreateInfo Get_Default_Sampler(
+    const Device::LogicalDevice::EngineDevice* device,
+    float mip_level = 1.0f,
+    VkSamplerAddressMode _address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT);
 
 VkSamplerCreateInfo Get_CubeTex_Sampler(const Device::LogicalDevice::EngineDevice* device,
                                         float mip_level);
@@ -23,20 +25,20 @@ struct EngineSampler
   EngineSampler() = default;
   EngineSampler(EngineSampler&&) noexcept = default;
   EngineSampler& operator=(EngineSampler&&) noexcept = default;
-
   template <class... Args>
   explicit EngineSampler(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }
-
   template <class... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }
-  ~EngineSampler() {}
-
+  ~EngineSampler()
+  {
+    destroyer();
+  }
   void destroyer();
 
   VkSampler sampler{};

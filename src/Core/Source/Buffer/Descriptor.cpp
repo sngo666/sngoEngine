@@ -88,6 +88,12 @@ void SngoEngine::Core::Source::Descriptor::EngineDescriptorSetLayout::creator(
     }
 }
 
+void SngoEngine::Core::Source::Descriptor::EngineDescriptorSetLayout::destroyer()
+{
+  if (device)
+    vkDestroyDescriptorSetLayout(device->logical_device, layout, Alloc);
+}
+
 //===========================================================================================================================
 // EngineDescriptorPool
 //===========================================================================================================================
@@ -118,7 +124,7 @@ void SngoEngine::Core::Source::Descriptor::EngineDescriptorPool::creator(
 
 void SngoEngine::Core::Source::Descriptor::EngineDescriptorPool::destroyer()
 {
-  if (descriptor_pool != VK_NULL_HANDLE)
+  if (device)
     {
       vkDestroyDescriptorPool(device->logical_device, descriptor_pool, Alloc);
       descriptor_pool = VK_NULL_HANDLE;

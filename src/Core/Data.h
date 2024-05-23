@@ -36,11 +36,11 @@ struct ImageCreate_Info : public VkImageCreateInfo
                    VkImageTiling _tiling,
                    VkImageUsageFlags _usage,
                    uint32_t _mipLevel = 1,
-                   VkSampleCountFlagBits _samples = VK_SAMPLE_COUNT_1_BIT,
                    uint32_t _arrayLayers = 1,
-                   VkImageType _imageType = VK_IMAGE_TYPE_2D,
+                   VkSampleCountFlagBits _samples = VK_SAMPLE_COUNT_1_BIT,
                    VkImageLayout _initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
                    VkImageCreateFlags _flag = VkImageCreateFlagBits(),
+                   VkImageType _imageType = VK_IMAGE_TYPE_2D,
                    VkSharingMode _sharingMode = VK_SHARING_MODE_EXCLUSIVE,
                    const void* _pNext = nullptr,
                    uint32_t _queueFamilyIndexCount = 0,
@@ -145,7 +145,7 @@ struct FrameBufferCreate_Info : public VkFramebufferCreateInfo
                                 _info.layers)
   {
   }
-  FrameBufferCreate_Info(VkRenderPass _renderPass,
+FrameBufferCreate_Info(VkRenderPass _renderPass,
                          std::vector<VkImageView>& _attachments,
                          const VkExtent3D _extent,
                          uint32_t _layers = 1,

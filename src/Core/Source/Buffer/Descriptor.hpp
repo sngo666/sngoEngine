@@ -38,15 +38,15 @@ struct EngineDescriptorSetLayout
     creator(_device, args...);
   }
   template <class... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }
   ~EngineDescriptorSetLayout()
   {
-    if (layout != VK_NULL_HANDLE)
-      vkDestroyDescriptorSetLayout(device->logical_device, layout, Alloc);
+    destroyer();
   }
+  void destroyer();
 
   VkDescriptorSetLayout layout{};
   size_t binding_size{};
@@ -74,7 +74,7 @@ struct EngineDescriptorPool
     creator(_device, args...);
   }
   template <class... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }
@@ -111,7 +111,7 @@ struct EngineDescriptorSet
     creator(_device, args...);
   }
   template <class... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }
@@ -204,7 +204,7 @@ struct EngineDescriptorSets
     creator(_device, args...);
   }
   template <class... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }

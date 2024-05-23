@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "src/Core/Data.h"
-#include "src/Core/Source/SwapChain/SwapChain.h"
+#include "src/Core/Source/SwapChain/SwapChain.hpp"
 #include "src/Core/Utils/Utils.hpp"
 
 uint32_t SngoEngine::Core::Device::PhysicalDevice::IsDevice_Suitable(

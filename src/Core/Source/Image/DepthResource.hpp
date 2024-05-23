@@ -12,6 +12,10 @@ namespace SngoEngine::Core::Source::DepthResource
 
 VkFormat FInd_DepthFormat(VkPhysicalDevice physical_device);
 
+//===========================================================================================================================
+// EngineDepthResource
+//===========================================================================================================================
+
 struct EngineDepthResource
 {
   EngineDepthResource() = default;
@@ -23,7 +27,7 @@ struct EngineDepthResource
     creator(_device, args...);
   }
   template <class... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }

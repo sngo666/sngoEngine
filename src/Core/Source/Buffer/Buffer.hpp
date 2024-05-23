@@ -20,6 +20,10 @@ SngoEngine::Core::Data::BufferCreate_Info Generate_BufferMemoryAllocate_Info(
     VkBuffer buffer,
     VkMemoryPropertyFlags properties);
 
+//===========================================================================================================================
+// EngineBuffer
+//===========================================================================================================================
+
 struct EngineBuffer
 {
   EngineBuffer() = default;
@@ -31,7 +35,7 @@ struct EngineBuffer
     creator(_device, args...);
   }
   template <class... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }

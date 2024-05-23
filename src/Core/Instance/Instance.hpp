@@ -22,7 +22,7 @@ namespace SngoEngine::Core::Instance
 bool IsExtension_Available(const std::vector<VkExtensionProperties>& properties,
                            const char* extension);
 std::vector<const char*> Get_Required_Extensions(
-    const std::vector<const char*>& required_extensions);
+    const std::vector<std::string>& required_extensions);
 bool Check_Validation_Available();
 
 VkBool32 VKAPI_CALL debug_call_back(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
@@ -39,35 +39,40 @@ VkDebugUtilsMessengerCreateInfoEXT Populate_Debug_CreateInfo(
                                            | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
                                            | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT);
 
+//===========================================================================================================================
+// EngineInstance
+//===========================================================================================================================
+
 struct EngineInstance
 {
-  EngineInstance() : instance(VK_NULL_HANDLE){};
+  EngineInstance() = default;
   EngineInstance(EngineInstance&&) noexcept = default;
   EngineInstance& operator=(EngineInstance&&) noexcept = default;
-
+  template <class... Args>
   explicit EngineInstance(const std::string& _app_name,
-                          const std::vector<const char*>& Instance_Exts = Macro::EMPTY_EXTS,
-                          const VkAllocationCallbacks* _alloc = nullptr);
-  void operator()(const std::string& _app_name,
-                  const std::vector<const char*>& Instance_Exts = Macro::EMPTY_EXTS,
-                  const VkAllocationCallbacks* _alloc = nullptr);
-
-  template <typename U>
-  U& operator=(U&) = delete;
+                          const std::vector<std::string>& _exts,
+                          Args... args)
+  {
+    creator(_app_name, _exts, args...);
+  }
+  template <class... Args>
+  void init(const std::string& _app_name, const std::vector<std::string>& _exts, Args... args)
+  {
+    creator(_app_name, _exts, args...);
+  }
   ~EngineInstance()
   {
-    if (instance != VK_NULL_HANDLE)
-      vkDestroyInstance(instance, Alloc);
+    destroyer();
   }
-
+  void destroyer();
   std::string appName();
-  const VkAllocationCallbacks* AllocationCallbacks();
-  VkInstance instance;
+
+  VkInstance instance{};
 
  private:
   void creator(const std::string& _app_name,
-               const std::vector<const char*>& Instance_Exts,
-               const VkAllocationCallbacks* alloc);
+               const std::vector<std::string>& _exts,
+               const VkAllocationCallbacks* alloc = nullptr);
   std::string app_name;
   const VkAllocationCallbacks* Alloc{};
 };

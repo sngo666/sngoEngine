@@ -88,6 +88,10 @@ struct DEFAULT_EngineModelVertexData
   }
 };
 
+//===========================================================================================================================
+// EngineVertexBuffer
+//===========================================================================================================================
+
 template <typename T, int N>
   requires(VertexStructure<T, N>)
 struct EngineVertexBuffer
@@ -101,7 +105,7 @@ struct EngineVertexBuffer
     creator(_device, args...);
   }
   template <class... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }
@@ -111,7 +115,7 @@ struct EngineVertexBuffer
   }
   void destroyer()
   {
-    if (buffer != VK_NULL_HANDLE)
+    if (device)
       {
         vkDestroyBuffer(device->logical_device, buffer, Alloc);
         vkFreeMemory(device->logical_device, buffer_memory, Alloc);

@@ -25,6 +25,12 @@ void SngoEngine::Core::Source::ImageView::EngineImageView::creator(
     }
 }
 
+void SngoEngine::Core::Source::ImageView::EngineImageView::destroyer()
+{
+  if (device)
+    vkDestroyImageView(device->logical_device, image_view, Alloc);
+}
+
 //===========================================================================================================================
 // EngineImageViews
 //===========================================================================================================================
@@ -55,9 +61,12 @@ void SngoEngine::Core::Source::ImageView::EngineImageViews::creator(
 
 void SngoEngine::Core::Source::ImageView::EngineImageViews::destroyer()
 {
-  for (auto& view : image_views)
-    vkDestroyImageView(device->logical_device, view, Alloc);
-  image_views.clear();
+  if (device)
+    {
+      for (auto& view : image_views)
+        vkDestroyImageView(device->logical_device, view, Alloc);
+      image_views.clear();
+    }
 }
 
 VkImageView& SngoEngine::Core::Source::ImageView::EngineImageViews::operator[](size_t t)

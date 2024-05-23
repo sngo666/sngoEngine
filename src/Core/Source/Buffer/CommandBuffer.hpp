@@ -22,14 +22,16 @@ struct EngineCommandPool
   EngineCommandPool() = default;
   EngineCommandPool(EngineCommandPool&&) noexcept = default;
   EngineCommandPool& operator=(EngineCommandPool&&) noexcept = default;
-  EngineCommandPool(const Device::LogicalDevice::EngineDevice* _device,
-                    Data::CommandPoolCreate_Info _info,
-                    const VkAllocationCallbacks* alloc = nullptr);
-  void operator()(const Device::LogicalDevice::EngineDevice* _device,
-                  Data::CommandPoolCreate_Info _info,
-                  const VkAllocationCallbacks* alloc = nullptr);
-  template <typename U>
-  U& operator=(U&) = delete;
+  template <typename... Args>
+  explicit EngineCommandPool(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
+  template <typename... Args>
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
   ~EngineCommandPool()
   {
     destroyer();
@@ -42,7 +44,7 @@ struct EngineCommandPool
  private:
   void creator(const Device::LogicalDevice::EngineDevice* _device,
                Data::CommandPoolCreate_Info _info,
-               const VkAllocationCallbacks* alloc);
+               const VkAllocationCallbacks* alloc = nullptr);
   const VkAllocationCallbacks* Alloc{};
 };
 
@@ -61,18 +63,13 @@ struct EngineCommandPools
     creator(_device, args...);
   }
   template <typename... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }
   template <typename U>
   U& operator=(U&) = delete;
-  ~EngineCommandPools()
-  {
-    for (auto& pool : command_pools)
-      if (pool != VK_NULL_HANDLE)
-        vkDestroyCommandPool(device->logical_device, pool, Alloc);
-  }
+  ~EngineCommandPools() {}
   VkCommandPool& operator[](size_t t);
   VkCommandPool* data();
   void resize(size_t t);
@@ -80,6 +77,7 @@ struct EngineCommandPools
 
   std::vector<VkCommandPool>::iterator begin();
   std::vector<VkCommandPool>::iterator end();
+  void destroyer();
 
   std::vector<VkCommandPool> command_pools;
   const Device::LogicalDevice::EngineDevice* device{};
@@ -108,14 +106,16 @@ struct EngineOnceCommandBuffer
   EngineOnceCommandBuffer() = default;
   EngineOnceCommandBuffer(EngineOnceCommandBuffer&&) noexcept = default;
   EngineOnceCommandBuffer& operator=(EngineOnceCommandBuffer&&) noexcept = default;
-  EngineOnceCommandBuffer(const Device::LogicalDevice::EngineDevice* _device,
-                          VkCommandPool _command_pool,
-                          VkQueue _queue);
-  void operator()(const Device::LogicalDevice::EngineDevice* _device,
-                  VkCommandPool _command_pool,
-                  VkQueue _queue);
-  template <typename U>
-  U& operator=(U&) = delete;
+  template <typename... Args>
+  explicit EngineOnceCommandBuffer(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
+  template <typename... Args>
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
   ~EngineOnceCommandBuffer()
   {
     destroyer();
@@ -123,15 +123,15 @@ struct EngineOnceCommandBuffer
   void destroyer();
   void end_buffer();
 
-  VkCommandBuffer command_buffer;
-  const Device::LogicalDevice::EngineDevice* device;
+  VkCommandBuffer command_buffer{};
+  const Device::LogicalDevice::EngineDevice* device{};
 
  private:
   void creator(const Device::LogicalDevice::EngineDevice* _device,
                VkCommandPool _command_pool,
                VkQueue _queue);
-  VkCommandPool command_pool;
-  VkQueue queue;
+  VkCommandPool command_pool{};
+  VkQueue queue{};
 };
 
 //===========================================================================================================================
@@ -143,16 +143,21 @@ struct EngineCommandBuffer
   EngineCommandBuffer() = default;
   EngineCommandBuffer(EngineCommandBuffer&&) noexcept = default;
   EngineCommandBuffer& operator=(EngineCommandBuffer&&) noexcept = default;
-  EngineCommandBuffer(const Device::LogicalDevice::EngineDevice* _device,
-                      VkCommandPool _command_pool);
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, VkCommandPool _command_pool);
-  template <typename U>
-  U& operator=(U&) = delete;
+  template <typename... Args>
+  explicit EngineCommandBuffer(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
+  template <typename... Args>
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
   ~EngineCommandBuffer()
   {
-    if (command_pool != VK_NULL_HANDLE)
-      vkFreeCommandBuffers(device->logical_device, command_pool, 1, &command_buffer);
+    destroyer();
   }
+  void destroyer();
 
   VkCommandBuffer command_buffer{};
   const Device::LogicalDevice::EngineDevice* device{};
@@ -173,18 +178,19 @@ struct EngineCommandBuffers
   EngineCommandBuffers() = default;
   EngineCommandBuffers(EngineCommandBuffers&&) noexcept = default;
   EngineCommandBuffers& operator=(EngineCommandBuffers&&) noexcept = default;
-  EngineCommandBuffers(const Device::LogicalDevice::EngineDevice* _device,
-                       VkCommandPool _command_pool,
-                       size_t _size);
-  void operator()(const Device::LogicalDevice::EngineDevice* _device,
-                  VkCommandPool _command_pool,
-                  size_t _size);
-  template <typename U>
-  U& operator=(U&) = delete;
+  template <typename... Args>
+  explicit EngineCommandBuffers(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
+  template <typename... Args>
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
   ~EngineCommandBuffers()
   {
-    if (command_pool != VK_NULL_HANDLE)
-      vkFreeCommandBuffers(device->logical_device, command_pool, size(), command_buffers.data());
+    destroyer();
   }
 
   VkCommandBuffer& operator[](size_t t);
@@ -194,6 +200,7 @@ struct EngineCommandBuffers
   void recreate(size_t n, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
   std::vector<VkCommandBuffer>::iterator begin();
   std::vector<VkCommandBuffer>::iterator end();
+  void destroyer();
 
   std::vector<VkCommandBuffer> command_buffers;
   const Device::LogicalDevice::EngineDevice* device{};

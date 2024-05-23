@@ -7,21 +7,25 @@
 namespace SngoEngine::Core::Siganlis
 {
 
+//===========================================================================================================================
+// EngineFences
+//===========================================================================================================================
+
 struct EngineFences
 {
   EngineFences() = default;
   EngineFences(EngineFences&&) noexcept = default;
   EngineFences& operator=(EngineFences&&) noexcept = default;
-  EngineFences(const Device::LogicalDevice::EngineDevice* _device,
-               size_t _size,
-               VkFenceCreateFlags flags = VK_FENCE_CREATE_SIGNALED_BIT,
-               const VkAllocationCallbacks* alloc = nullptr);
-  void operator()(const Device::LogicalDevice::EngineDevice* _device,
-                  size_t _size,
-                  VkFenceCreateFlags flags = VK_FENCE_CREATE_SIGNALED_BIT,
-                  const VkAllocationCallbacks* alloc = nullptr);
-  template <typename U>
-  U& operator=(U&) = delete;
+  template <typename... Args>
+  explicit EngineFences(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
+  template <typename... Args>
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
   ~EngineFences()
   {
     destroyer();
@@ -41,8 +45,8 @@ struct EngineFences
  private:
   void creator(const Device::LogicalDevice::EngineDevice* _device,
                size_t _size,
-               VkFenceCreateFlags flags,
-               const VkAllocationCallbacks* alloc);
+               VkFenceCreateFlags flags = VK_FENCE_CREATE_SIGNALED_BIT,
+               const VkAllocationCallbacks* alloc = nullptr);
   const VkAllocationCallbacks* Alloc{};
 };
 }  // namespace SngoEngine::Core::Siganlis

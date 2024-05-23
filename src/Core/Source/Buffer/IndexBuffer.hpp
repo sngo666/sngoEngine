@@ -15,6 +15,10 @@
 namespace SngoEngine::Core::Source::Buffer
 {
 
+//===========================================================================================================================
+// EngineIndexBuffer
+//===========================================================================================================================
+
 template <typename T>
 struct EngineIndexBuffer
 {
@@ -27,7 +31,7 @@ struct EngineIndexBuffer
     creator(_device, args...);
   }
   template <class... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }
@@ -37,7 +41,7 @@ struct EngineIndexBuffer
   }
   void destroyer()
   {
-    if (buffer != VK_NULL_HANDLE)
+    if (device)
       {
         vkDestroyBuffer(device->logical_device, buffer, Alloc);
         vkFreeMemory(device->logical_device, buffer_memory, Alloc);

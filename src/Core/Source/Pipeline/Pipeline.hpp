@@ -25,6 +25,10 @@ VkPipelineShaderStageCreateInfo Get_FragmentShader_CreateInfo(
 VkPipelineShaderStageCreateInfo Get_FragmentShader_CreateInfo(const std::string& _pName,
                                                               const VkShaderModule& compiled_code);
 
+//===========================================================================================================================
+// EnginePipelineLayout
+//===========================================================================================================================
+
 struct EnginePipelineLayout
 {
   EnginePipelineLayout() = default;
@@ -40,12 +44,11 @@ struct EnginePipelineLayout
   {
     creator(_device, args...);
   }
-  template <typename U>
-  U& operator=(U&) = delete;
   ~EnginePipelineLayout()
   {
     destroyer();
   }
+  void destroyer();
 
   VkPipelineLayout pipeline_layout{};
   const Device::LogicalDevice::EngineDevice* device{};
@@ -55,9 +58,12 @@ struct EnginePipelineLayout
                const std::vector<VkDescriptorSetLayout>& descriptor_set_layout,
                const std::vector<VkPushConstantRange>& push_constant_range,
                const VkAllocationCallbacks* alloc = nullptr);
-  void destroyer();
   const VkAllocationCallbacks* Alloc{};
 };
+
+//===========================================================================================================================
+// EngineGraphicPipeline
+//===========================================================================================================================
 
 struct EngineGraphicPipeline
 {
@@ -72,24 +78,23 @@ struct EngineGraphicPipeline
     creator(_device, layout, args...);
   }
   template <typename... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device,
-                  const EnginePipelineLayout* layout,
-                  Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device,
+            const EnginePipelineLayout* layout,
+            Args... args)
   {
     creator(_device, layout, args...);
   }
-  template <typename U>
-  U& operator=(U&) = delete;
   ~EngineGraphicPipeline()
   {
     destroyer();
   }
+  void destroyer();
+
   VkPipeline pipeline{};
   Render::RenderPass::EngineRenderPass* render_pass{};
   const Device::LogicalDevice::EngineDevice* device{};
 
  private:
-  void destroyer();
   void creator(const Device::LogicalDevice::EngineDevice* _device,
                const EnginePipelineLayout* layout,
                Render::RenderPass::EngineRenderPass* _render_pass,

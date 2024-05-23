@@ -1,26 +1,13 @@
-#include "Semaphore.h"
+#include "Semaphore.hpp"
 
 #include <vulkan/vulkan_core.h>
 
 #include <cstddef>
 #include <stdexcept>
 
-SngoEngine::Core::Siganlis::EngineSemaphores::EngineSemaphores(
-    const Device::LogicalDevice::EngineDevice* _device,
-    size_t _size,
-    const VkAllocationCallbacks* alloc)
-    : SngoEngine::Core::Siganlis::EngineSemaphores()
-{
-  creator(_device, _size, alloc);
-}
-
-void SngoEngine::Core::Siganlis::EngineSemaphores::operator()(
-    const Device::LogicalDevice::EngineDevice* _device,
-    size_t _size,
-    const VkAllocationCallbacks* alloc)
-{
-  creator(_device, _size, alloc);
-}
+//===========================================================================================================================
+// EngineSemaphores
+//===========================================================================================================================
 
 void SngoEngine::Core::Siganlis::EngineSemaphores::creator(
     const Device::LogicalDevice::EngineDevice* _device,

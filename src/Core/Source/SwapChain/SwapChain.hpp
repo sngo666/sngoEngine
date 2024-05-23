@@ -11,7 +11,7 @@
 #include "GLFW/glfw3.h"
 #include "src/Core/Data.h"
 #include "src/Core/Device/LogicalDevice.hpp"
-#include "src/Core/Render/FrameBuffer.h"
+#include "src/Core/Render/FrameBuffer.hpp"
 #include "src/Core/Render/RenderPass.hpp"
 #include "src/Core/Source/Image/ImageVIew.hpp"
 #include "src/GLFWEXT/Surface.h"
@@ -49,34 +49,36 @@ std::vector<VkImage> Create_SwapChainImages(
     VkSwapchainKHR swap_chain,
     const VkAllocationCallbacks* alloc);
 
+//===========================================================================================================================
+// EngineSwapChain
+//===========================================================================================================================
+
 struct EngineSwapChain
 {
   EngineSwapChain() = default;
   EngineSwapChain(EngineSwapChain&&) noexcept = default;
   EngineSwapChain& operator=(EngineSwapChain&&) noexcept = default;
-  EngineSwapChain(const SngoEngine::Core::Device::LogicalDevice::EngineDevice* _device,
-                  const SwapChainRequirement& requirements,
-                  const VkAllocationCallbacks* alloc = nullptr);
-  void operator()(const SngoEngine::Core::Device::LogicalDevice::EngineDevice* _device,
-                  const SwapChainRequirement& requirements,
-                  const VkAllocationCallbacks* alloc = nullptr);
-  template <typename U>
-  U& operator=(U&) = delete;
+  template <typename... Args>
+  explicit EngineSwapChain(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
+  template <typename... Args>
+  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  {
+    creator(_device, args...);
+  }
   ~EngineSwapChain()
   {
     destroyer();
   }
-  void Create_FrameBuffers(
-      const std::vector<VkImageView>& additional_views,
-      const SngoEngine::Core::Render::RenderPass::EngineRenderPass* _renderpass);
-  void CleanUp_Self();
+  void cleanup_self();
   void destroyer();
   void Recreate_Self(GLFWwindow* window);
 
   VkSwapchainKHR swap_chain{};
   std::vector<VkImage> images;
   ImageView::EngineImageViews image_views;
-  Render::EngineFrameBuffers frame_buffers;
 
   VkFormat image_format{};
   VkExtent2D extent{};
@@ -85,7 +87,7 @@ struct EngineSwapChain
  private:
   void creator(const SngoEngine::Core::Device::LogicalDevice::EngineDevice* _device,
                const SwapChainRequirement& requirements,
-               const VkAllocationCallbacks* alloc);
+               const VkAllocationCallbacks* alloc = nullptr);
   const VkAllocationCallbacks* Alloc{};
 };
 

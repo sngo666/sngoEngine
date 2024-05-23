@@ -95,7 +95,7 @@ struct EngineImage
     creator(_device, args...);
   }
   template <class... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }
@@ -137,12 +137,10 @@ struct EngineTextureImage
     creator(_device, args...);
   }
   template <class... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }
-  template <typename U>
-  U& operator=(U&) = delete;
   ~EngineTextureImage()
   {
     destroyer();
@@ -221,12 +219,10 @@ struct EngineCubeTexture
     creator(_device, args...);
   }
   template <class... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
   }
-  template <typename U>
-  U& operator=(U&) = delete;
   ~EngineCubeTexture()
   {
     destroyer();

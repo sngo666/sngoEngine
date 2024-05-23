@@ -25,21 +25,19 @@ struct EngineDevice
   {
     creator(args...);
   }
-
   template <class... Args>
-  void operator()(Args... args)
+  void init(Args... args)
   {
     creator(args...);
   }
   ~EngineDevice()
   {
-    if (logical_device != VK_NULL_HANDLE)
-      vkDestroyDevice(logical_device, Alloc);
+    destroyer();
   };
 
   //------------------------------- functions ------------------------------
   [[nodiscard]] bool ext_supported(const std::string& _ext) const;
-
+  void destroyer();
   //------------------------------- members ------------------------------
 
   Data::QueueFamilyIndices queue_family;
@@ -55,8 +53,8 @@ struct EngineDevice
  private:
   void creator(PhysicalDevice::EnginePhysicalDevice* _physical_device,
                VkSurfaceKHR _device_surface,
-               const std::vector<const char*>& required_EXTs,
-               const std::vector<const char*>& required_LAYERs,
+               const std::vector<std::string>& required_EXTs,
+               const std::vector<std::string>& required_LAYERs,
                float queuePriority = 0.0f,
                const VkAllocationCallbacks* alloc = nullptr);
   const VkAllocationCallbacks* Alloc{};

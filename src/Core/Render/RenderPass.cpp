@@ -99,7 +99,7 @@ SngoEngine::Core::Render::RenderPass::DEFAULT_ATTACHMENTDATA(VkFormat format,
 
 void SngoEngine::Core::Render::RenderPass::EngineRenderPass::creator(
     const Device::LogicalDevice::EngineDevice* _device,
-    const std::vector<Data::SubpassDependency_Info>& _dependency,
+    const std::vector<VkSubpassDependency>& _dependency,
     const VkSubpassDescription* _subpass,
     std::vector<VkAttachmentDescription>& _attachments,
     const VkAllocationCallbacks* alloc)
@@ -125,7 +125,7 @@ void SngoEngine::Core::Render::RenderPass::EngineRenderPass::creator(
 
 void SngoEngine::Core::Render::RenderPass::EngineRenderPass::creator(
     const Device::LogicalDevice::EngineDevice* _device,
-    const std::vector<Data::SubpassDependency_Info>& _dependency,
+    const std::vector<VkSubpassDependency>& _dependency,
     const std::vector<VkSubpassDescription>& _subpasses,
     std::vector<VkAttachmentDescription>& _attachments,
     const VkAllocationCallbacks* alloc)
@@ -147,4 +147,10 @@ void SngoEngine::Core::Render::RenderPass::EngineRenderPass::creator(
     {
       throw std::runtime_error("failed to create render pass!");
     }
+}
+
+void SngoEngine::Core::Render::RenderPass::EngineRenderPass::destroyer()
+{
+  if (render_pass && device)
+    vkDestroyRenderPass(device->logical_device, render_pass, Alloc);
 }

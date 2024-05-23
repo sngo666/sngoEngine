@@ -4,15 +4,16 @@
 
 VkSamplerCreateInfo SngoEngine::Core::Source::Image::Get_Default_Sampler(
     const Device::LogicalDevice::EngineDevice* device,
-    float mip_level)
+    float mip_level,
+    VkSamplerAddressMode _address_mode)
 {
   VkSamplerCreateInfo sampler_info{};
   sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
   sampler_info.magFilter = VK_FILTER_LINEAR;
   sampler_info.minFilter = VK_FILTER_LINEAR;
-  sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-  sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-  sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  sampler_info.addressModeU = _address_mode;
+  sampler_info.addressModeV = _address_mode;
+  sampler_info.addressModeW = _address_mode;
   sampler_info.anisotropyEnable = VK_FALSE;
   sampler_info.maxAnisotropy = device->pPD->enabled_features.samplerAnisotropy
                                    ? device->pPD->properties.limits.maxSamplerAnisotropy
@@ -67,11 +68,9 @@ VkSamplerCreateInfo SngoEngine::Core::Source::Image::Get_CubeTex_Sampler(
   return sampler_info;
 }
 
-void SngoEngine::Core::Source::Image::EngineSampler::destroyer()
-{
-  if (sampler != VK_NULL_HANDLE)
-    vkDestroySampler(device->logical_device, sampler, Alloc);
-}
+//===========================================================================================================================
+// EngineSampler
+//===========================================================================================================================
 
 void SngoEngine::Core::Source::Image::EngineSampler::creator(
     const Device::LogicalDevice::EngineDevice* _device,
@@ -88,4 +87,10 @@ void SngoEngine::Core::Source::Image::EngineSampler::creator(
     {
       throw std::runtime_error("failed to create texture sampler!");
     }
+}
+
+void SngoEngine::Core::Source::Image::EngineSampler::destroyer()
+{
+  if (device)
+    vkDestroySampler(device->logical_device, sampler, Alloc);
 }

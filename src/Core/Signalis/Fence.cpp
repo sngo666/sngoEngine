@@ -1,25 +1,10 @@
-#include "Fence.h"
+#include "Fence.hpp"
 
 #include <cstddef>
 
-SngoEngine::Core::Siganlis::EngineFences::EngineFences(
-    const Device::LogicalDevice::EngineDevice* _device,
-    size_t _size,
-    VkFenceCreateFlags flags,
-    const VkAllocationCallbacks* alloc)
-    : EngineFences()
-{
-  creator(_device, _size, flags, alloc);
-}
-
-void SngoEngine::Core::Siganlis::EngineFences::operator()(
-    const Device::LogicalDevice::EngineDevice* _device,
-    size_t _size,
-    VkFenceCreateFlags flags,
-    const VkAllocationCallbacks* alloc)
-{
-  creator(_device, _size, flags, alloc);
-}
+//===========================================================================================================================
+// EngineFences
+//===========================================================================================================================
 
 void SngoEngine::Core::Siganlis::EngineFences::creator(
     const Device::LogicalDevice::EngineDevice* _device,

@@ -1,4 +1,4 @@
-#include "DebugMessenger.h"
+#include "DebugMessenger.hpp"
 
 #include <vulkan/vulkan_core.h>
 
@@ -24,22 +24,9 @@ SngoEngine::Core::Instance::DebugMessenger::Populate_Debug_CreateInfo(
   return create_info;
 }
 
-SngoEngine::Core::Instance::DebugMessenger::EngineDebugMessenger::EngineDebugMessenger(
-    const EngineInstance* _instance,
-    Debug_CallBack_Lambda lambda,
-    const VkAllocationCallbacks* alloc)
-    : EngineDebugMessenger()
-{
-  creator(_instance, lambda, alloc);
-}
-
-void SngoEngine::Core::Instance::DebugMessenger::EngineDebugMessenger::operator()(
-    const EngineInstance* _instance,
-    Debug_CallBack_Lambda lambda,
-    const VkAllocationCallbacks* alloc)
-{
-  creator(_instance, lambda, alloc);
-}
+//===========================================================================================================================
+// EngineDebugMessenger
+//===========================================================================================================================
 
 void SngoEngine::Core::Instance::DebugMessenger::EngineDebugMessenger::creator(
     const EngineInstance* _instance,
@@ -60,10 +47,10 @@ void SngoEngine::Core::Instance::DebugMessenger::EngineDebugMessenger::creator(
     }
 }
 
-const VkAllocationCallbacks*
-SngoEngine::Core::Instance::DebugMessenger::EngineDebugMessenger::AllocationCallbacks()
+void SngoEngine::Core::Instance::DebugMessenger::EngineDebugMessenger::destroyer()
 {
-  return Alloc;
+  if (debug_messenger && instance)
+    DestroyDebugUtilsMessengerEXT(instance->instance, &debug_messenger, Alloc);
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL debug_report(VkDebugReportFlagsEXT flags,
