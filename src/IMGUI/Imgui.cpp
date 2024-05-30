@@ -28,6 +28,7 @@
 #include "src/Core/Source/Model/Camera.hpp"
 #include "src/Core/Source/Model/Model.hpp"
 #include "src/Core/Source/Pipeline/Pipeline.hpp"
+#include "src/Core/Source/Pipeline/RenderPipline.hpp"
 #include "src/Core/Source/SwapChain/SwapChain.hpp"
 #include "src/Core/Utils/Utils.hpp"
 #include "src/GLFWEXT/Surface.h"
@@ -131,60 +132,24 @@ int SngoEngine::Imgui::ImguiApplication::init()
                                                                         gui_Surface.window};
 
   gui_SwapChain(&gui_Device, swap_chain_requirements);
-  // model_SwapChain(&gui_Device, swap_chain_requirements);
 
   fmt::println("gui_SwapChain created");
 
+  // --------------------  RenderPasses  --------------------
+
   semaphore_count = Core::Macro::MAX_FRAMES_IN_FLIGHT;
   Image_count = swap_chain_requirements.img_count;
+  sampler_flag = Core::Source::RenderPipeline::MSAA_maxAvailableSampleCount(&gui_Device);
 
-  std::vector<VkAttachmentDescription> model_attachments{
-      Core::Render::RenderPass::Default_ColorAttachment(
-          swap_chain_requirements.surface_format.format),
-      Core::Render::RenderPass::Default_DepthAttachment(gui_Device.pPD->physical_device)};
+  msaa_renderpass.init(&gui_Device,
+                       gui_SwapChain.extent,
+                       gui_SwapChain.image_format,
+                       sampler_flag,
+                       &gui_SwapChain,
+                       true);
 
-  VkAttachmentReference color_attachment = {};
-  color_attachment.attachment = 0;
-  color_attachment.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-  VkAttachmentReference depth_attachment_ref{};
-  depth_attachment_ref.attachment = 1;
-  depth_attachment_ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-  VkSubpassDescription model_subpass{};
-  model_subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  model_subpass.colorAttachmentCount = 1;
-  model_subpass.pColorAttachments = &color_attachment;
-  model_subpass.pDepthStencilAttachment = &depth_attachment_ref;
-
-  VkSubpassDescription gui_subpass{};
-  gui_subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  gui_subpass.colorAttachmentCount = 1;
-  gui_subpass.pColorAttachments = &color_attachment;
-  gui_subpass.pDepthStencilAttachment = &depth_attachment_ref;
-
-  std::vector<VkSubpassDescription> total_subpass{model_subpass, gui_subpass};
-
-  main_RenderPass.init(&gui_Device, GUI_SUBPASS_DEPENDENCY(), total_subpass, model_attachments);
   fmt::println("main_RenderPass created");
   // --------------------  FrameBuffers  --------------------
-
-  gui_DepthResource.init(&gui_Device,
-                         VkExtent3D{gui_SwapChain.extent.width, gui_SwapChain.extent.height, 1});
-
-  model_DepthResource.init(&gui_Device,
-                           VkExtent3D{gui_SwapChain.extent.width, gui_SwapChain.extent.height, 1});
-
-  std::vector<VkImageView> additional_views{gui_DepthResource.engine_ImageView.image_view};
-  std::vector<std::vector<VkImageView>> _attachments;
-  for (auto& view : gui_SwapChain.image_views)
-    {
-      std::vector<VkImageView> atta{view};
-      atta.push_back(gui_DepthResource.engine_ImageView.image_view);
-      _attachments.push_back(atta);
-    }
-
-  swapchain_framebuffers.init(
-      &gui_Device, main_RenderPass.render_pass, _attachments, gui_SwapChain.extent, 1);
 
   fmt::println("FrameBuffers created");
 
@@ -208,9 +173,9 @@ int SngoEngine::Imgui::ImguiApplication::init()
   // prepare for uniform binding
   {
     std::vector<VkDescriptorPoolSize> poolSizes = {
-        Core::Source::Descriptor::Get_DescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1),
+        Core::Source::Descriptor::Get_DescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4),
         Core::Source::Descriptor::Get_DescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                                         1)};
+                                                         6)};
 
     std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
         Core::Source::Descriptor::GetLayoutBinding(
@@ -218,7 +183,7 @@ int SngoEngine::Imgui::ImguiApplication::init()
             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
             0)};
 
-    uni_pool.init(&gui_Device, 2, poolSizes);
+    uni_pool.init(&gui_Device, 4, poolSizes);
     uni_setlayout.init(&gui_Device, setLayoutBindings);
     uni_set.init(&gui_Device, &uni_setlayout, &uni_pool);
 
@@ -230,6 +195,39 @@ int SngoEngine::Imgui::ImguiApplication::init()
                                                        &model_UniBuffer.descriptor)};
     uni_set.updateWrite(writeDescriptorSets);
   }
+
+  // ------------------  HDR renderpass     ---------------------
+  {
+    hdr_renderpass.init(&gui_Device, gui_SwapChain.extent, sampler_flag);
+  }
+
+  // ------------------ bloom filter  ---------------------
+  {
+    bloom_renderpass.init(&gui_Device, gui_SwapChain.extent);
+    std::vector<VkDescriptorImageInfo> img_infos{
+        VkDescriptorImageInfo{hdr_renderpass.sampler.sampler,
+                              hdr_renderpass.attchment_Resolve_0.view.image_view,
+                              VK_IMAGE_LAYOUT_GENERAL},
+        VkDescriptorImageInfo{hdr_renderpass.sampler.sampler,
+                              hdr_renderpass.attchment_Resolve_1.view.image_view,
+                              VK_IMAGE_LAYOUT_GENERAL},
+    };
+    bloom_renderpass.construct_descriptor(&uni_pool, img_infos);
+  }
+
+  // MSAA descriptor
+  {
+    std::vector<VkDescriptorImageInfo> img_infos{
+        VkDescriptorImageInfo{hdr_renderpass.sampler.sampler,
+                              hdr_renderpass.attchment_Resolve_0.view.image_view,
+                              VK_IMAGE_LAYOUT_GENERAL},
+        VkDescriptorImageInfo{bloom_renderpass.sampler.sampler,
+                              bloom_renderpass.attchment_FloatingPoint.view.image_view,
+                              VK_IMAGE_LAYOUT_GENERAL},
+    };
+    msaa_renderpass.construct_descriptor(&uni_pool, img_infos);
+  }
+
   // ---------------------  Models  ------------------------
 
   load_model();
@@ -237,6 +235,24 @@ int SngoEngine::Imgui::ImguiApplication::init()
   // --------------------- Pipeline ------------------------
 
   construct_pipeline();
+
+  fmt::println("model and skybox pipeline constructed");
+
+  auto bloom_stage{Core::Source::Pipeline::EngineShaderStage(
+      &gui_Device, BLOOM_VertexShader_code, BLOOM_FragmentShader_code)};
+  auto msaa_stage{Core::Source::Pipeline::EngineShaderStage(
+      &gui_Device, MSAA_VertexShader_code, MSAA_FragmentShader_code)};
+
+  msaa_renderpass.construct_pipeline(msaa_stage.stages, sampler_flag);
+
+  fmt::println("msaa_renderpass pipeline constructed");
+
+  bloom_renderpass.construct_pipeline(bloom_stage.stages,
+                                      &msaa_renderpass.pipeline_layout,
+                                      &msaa_renderpass.renderpass,
+                                      sampler_flag);
+
+  fmt::println("bloom_renderpass pipeline constructed");
 
   // --------------------- Semaphore ------------------------
 
@@ -279,11 +295,11 @@ int SngoEngine::Imgui::ImguiApplication::init()
   init_info.Queue = gui_Device.graphics_queue;
   init_info.PipelineCache = gui_PipelineCache;
   init_info.DescriptorPool = gui_DescriptorPool.descriptor_pool;
-  init_info.RenderPass = main_RenderPass.render_pass;
+  init_info.RenderPass = msaa_renderpass.renderpass.render_pass;
   init_info.Subpass = 1;
   init_info.MinImageCount = frames_InFlight;
   init_info.ImageCount = Core::Macro::MAX_FRAMES_IN_FLIGHT;
-  init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+  init_info.MSAASamples = sampler_flag;
   init_info.Allocator = nullptr;
   init_info.CheckVkResultFn = check_vk_result;
 
@@ -353,6 +369,16 @@ int SngoEngine::Imgui::ImguiApplication::init()
       {
         ImGui::Begin("Sngo Engine!");
 
+        ImGui::Checkbox("Render Skybox", &render_skybox);
+        ImGui::Checkbox("Bloom", &will_bloom);
+
+        ImGui::InputFloat("Exposure", &exposure, 0.025f, 3);
+        // if (ImGui::Checkbox("use MSAA", &use_sampler_shading))
+        //   {
+        // TODO: runtime toggle MSAA not support, waitting for better structure
+        // construct_pipeline();
+        // }
+
         // if (main_Camera.type == EngineCamera::firstperson)
         {
           main_Camera.keys.up = ImGui::IsKeyDown(ImGui::GetKeyIndex(ImGuiKey_W));
@@ -418,7 +444,7 @@ int SngoEngine::Imgui::ImguiApplication::init()
         {
           auto time_end = std::chrono::high_resolution_clock::now();
 
-          auto t{std::chrono::duration<float, std::milli>(time_end - time_start).count() / 1000.0f};
+          auto t{std::chrono::duration<float, std::milli>(time_end - time_start).count() / 200.0f};
           ImGui::Text("frame time: %f", t);
 
           main_Camera.update(t);
@@ -456,7 +482,10 @@ int SngoEngine::Imgui::ImguiApplication::init()
                                clear_color.w}}};
 
           gui_Clearvalue[0].color = color.color;
-          gui_Clearvalue[1].depthStencil = {1.0f, 0};
+          gui_Clearvalue[1].color = color.color;
+          gui_Clearvalue[2].depthStencil = {1.0f, 0};
+          gui_Clearvalue[3].color = color.color;
+          gui_Clearvalue[4].color = color.color;
 
           Render_Frame(draw_data, gui_Clearvalue);
           Present_Frame();
@@ -478,7 +507,7 @@ int SngoEngine::Imgui::ImguiApplication::init()
 }
 
 void SngoEngine::Imgui::ImguiApplication::Render_Frame(ImDrawData* draw_data,
-                                                       std::array<VkClearValue, 2> gui_Clearvalue)
+                                                       std::vector<VkClearValue>& gui_Clearvalue)
 {
   VkSemaphore img_ac_semaphore{gui_ImageAcquiredSemaphores[Frame_Index]};
   VkSemaphore render_ok_semaphore{gui_RenderCompleteSemaphores[Frame_Index]};
@@ -518,7 +547,7 @@ void SngoEngine::Imgui::ImguiApplication::Render_Frame(ImDrawData* draw_data,
 
     VkCommandBufferBeginInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    info.flags |= VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
     err = vkBeginCommandBuffer(gui_CommandBuffers[Frame_Index].command_buffer, &info);
     check_vk_result(err);
   }
@@ -526,9 +555,8 @@ void SngoEngine::Imgui::ImguiApplication::Render_Frame(ImDrawData* draw_data,
   VkRenderPassBeginInfo render_pass_begin_info{};
 
   render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-  render_pass_begin_info.renderPass = main_RenderPass.render_pass;
-  render_pass_begin_info.framebuffer = swapchain_framebuffers[imageIndex];
-
+  render_pass_begin_info.renderPass = hdr_renderpass.renderpass();
+  render_pass_begin_info.framebuffer = hdr_renderpass.framebuffer();
   render_pass_begin_info.renderArea.offset = {0, 0};
   render_pass_begin_info.renderArea.extent = gui_SwapChain.extent;
   render_pass_begin_info.clearValueCount = gui_Clearvalue.size();
@@ -558,27 +586,30 @@ void SngoEngine::Imgui::ImguiApplication::Render_Frame(ImDrawData* draw_data,
                       VK_PIPELINE_BIND_POINT_GRAPHICS,
                       skybox_GraphicPipeline.pipeline);
 
-    vkCmdBindDescriptorSets(gui_CommandBuffers[Frame_Index].command_buffer,
-                            VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            skybox_Pipelinelayout.pipeline_layout,
-                            1,
-                            1,
-                            &skybox_set.descriptor_set,
-                            0,
-                            nullptr);
+    if (render_skybox)
+      {
+        vkCmdBindDescriptorSets(gui_CommandBuffers[Frame_Index].command_buffer,
+                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                skybox_Pipelinelayout.pipeline_layout,
+                                1,
+                                1,
+                                &skybox_set.descriptor_set,
+                                0,
+                                nullptr);
 
-    vkCmdBindDescriptorSets(gui_CommandBuffers[Frame_Index].command_buffer,
-                            VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            skybox_Pipelinelayout.pipeline_layout,
-                            0,
-                            1,
-                            &uni_set.descriptor_set,
-                            0,
-                            nullptr);
+        vkCmdBindDescriptorSets(gui_CommandBuffers[Frame_Index].command_buffer,
+                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                skybox_Pipelinelayout.pipeline_layout,
+                                0,
+                                1,
+                                &uni_set.descriptor_set,
+                                0,
+                                nullptr);
 
-    sky_box.model.bind_buffers(gui_CommandBuffers[Frame_Index].command_buffer);
-    sky_box.model.draw(gui_CommandBuffers[Frame_Index].command_buffer,
-                       skybox_Pipelinelayout.pipeline_layout);
+        sky_box.draw(gui_CommandBuffers[Frame_Index].command_buffer,
+                     skybox_Pipelinelayout.pipeline_layout,
+                     1);
+      }
 
     // render model
     vkCmdBindPipeline(gui_CommandBuffers[Frame_Index].command_buffer,
@@ -597,14 +628,104 @@ void SngoEngine::Imgui::ImguiApplication::Render_Frame(ImDrawData* draw_data,
     old_school.bind_buffers(gui_CommandBuffers[Frame_Index].command_buffer);
     old_school.draw(gui_CommandBuffers[Frame_Index].command_buffer,
                     model_Pipelinelayout.pipeline_layout);
-
-    vkCmdNextSubpass(gui_CommandBuffers[Frame_Index].command_buffer, VK_SUBPASS_CONTENTS_INLINE);
-    // Record dear imgui primitives into command buffer
-    ImGui_ImplVulkan_RenderDrawData(draw_data, gui_CommandBuffers[Frame_Index].command_buffer);
   }
 
   // Submit command buffer
   vkCmdEndRenderPass(gui_CommandBuffers[Frame_Index].command_buffer);
+
+  if (will_bloom)
+    {
+      std::vector<VkClearValue> clearValues{2};
+      clearValues[0].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+      clearValues[1].depthStencil = {1.0f, 0};
+
+      // Bloom filter
+      VkRenderPassBeginInfo renderPassBeginInfo{};
+      renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+      renderPassBeginInfo.framebuffer = bloom_renderpass.framebuffer();
+      renderPassBeginInfo.renderPass = bloom_renderpass.renderpass();
+      renderPassBeginInfo.clearValueCount = 1;
+      renderPassBeginInfo.renderArea.extent.width = bloom_renderpass.extent.width;
+      renderPassBeginInfo.renderArea.extent.height = bloom_renderpass.extent.height;
+      renderPassBeginInfo.pClearValues = clearValues.data();
+
+      vkCmdBeginRenderPass(
+          gui_CommandBuffers[Frame_Index](), &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+      VkViewport viewport = Core::Render::RenderPass::Get_ViewPort(
+          (float)bloom_renderpass.extent.width, (float)bloom_renderpass.extent.height, 0.0f, 1.0f);
+      vkCmdSetViewport(gui_CommandBuffers[Frame_Index](), 0, 1, &viewport);
+
+      VkRect2D scissor = Core::Render::RenderPass::Get_Rect2D(
+          bloom_renderpass.extent.width, bloom_renderpass.extent.height, 0, 0);
+      vkCmdSetScissor(gui_CommandBuffers[Frame_Index](), 0, 1, &scissor);
+
+      vkCmdBindDescriptorSets(gui_CommandBuffers[Frame_Index](),
+                              VK_PIPELINE_BIND_POINT_GRAPHICS,
+                              bloom_renderpass.pipeline_layout(),
+                              0,
+                              1,
+                              &bloom_renderpass.bloom_set.descriptor_set,
+                              0,
+                              nullptr);
+
+      vkCmdBindPipeline(gui_CommandBuffers[Frame_Index](),
+                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+                        bloom_renderpass.pipelines[1]());
+      vkCmdDraw(gui_CommandBuffers[Frame_Index](), 3, 1, 0, 0);
+
+      vkCmdEndRenderPass(gui_CommandBuffers[Frame_Index]());
+    }
+
+  {
+    VkClearValue clearValues[3];
+    clearValues[0].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+    clearValues[1].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+    clearValues[2].depthStencil = {1.0f, 0};
+
+    // Final composition
+    VkRenderPassBeginInfo renderPassBeginInfo{};
+    renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassBeginInfo.framebuffer = msaa_renderpass.framebuffers[imageIndex];
+    renderPassBeginInfo.renderPass = msaa_renderpass.renderpass();
+    renderPassBeginInfo.clearValueCount = 3;
+    renderPassBeginInfo.renderArea.extent.width = msaa_renderpass.extent.width;
+    renderPassBeginInfo.renderArea.extent.height = msaa_renderpass.extent.height;
+    renderPassBeginInfo.pClearValues = clearValues;
+
+    vkCmdBeginRenderPass(
+        gui_CommandBuffers[Frame_Index](), &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    VkViewport viewport = Core::Render::RenderPass::Get_ViewPort(
+        (float)msaa_renderpass.extent.width, (float)msaa_renderpass.extent.height, 0.0f, 1.0f);
+    vkCmdSetViewport(gui_CommandBuffers[Frame_Index](), 0, 1, &viewport);
+
+    VkRect2D scissor = Core::Render::RenderPass::Get_Rect2D(
+        msaa_renderpass.extent.width, msaa_renderpass.extent.height, 0, 0);
+
+    vkCmdSetScissor(gui_CommandBuffers[Frame_Index](), 0, 1, &scissor);
+
+    vkCmdBindDescriptorSets(gui_CommandBuffers[Frame_Index](),
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            msaa_renderpass.pipeline_layout(),
+                            0,
+                            1,
+                            &msaa_renderpass.msaa_set.descriptor_set,
+                            0,
+                            nullptr);
+
+    // Scene
+    vkCmdBindPipeline(gui_CommandBuffers[Frame_Index](),
+                      VK_PIPELINE_BIND_POINT_GRAPHICS,
+                      msaa_renderpass.pipeline());
+    vkCmdDraw(gui_CommandBuffers[Frame_Index](), 3, 1, 0, 0);
+
+    vkCmdNextSubpass(gui_CommandBuffers[Frame_Index].command_buffer, VK_SUBPASS_CONTENTS_INLINE);
+    // Record dear imgui primitives into command buffer
+    ImGui_ImplVulkan_RenderDrawData(draw_data, gui_CommandBuffers[Frame_Index]());
+
+    vkCmdEndRenderPass(gui_CommandBuffers[Frame_Index].command_buffer);
+  }
 
   {
     VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -660,72 +781,50 @@ void SngoEngine::Imgui::ImguiApplication::construct_pipeline()
           0);
   VkPipelineVertexInputStateCreateInfo vertex_input{
       Core::Data::GetVertexInput_Info(binding_description, attribute_descriptions)};
-  VkPipelineInputAssemblyStateCreateInfo input_assembly{Core::Data::GetInputAssembly_Info()};
-  VkPipelineViewportStateCreateInfo viewport_state{
-      Core::Data::GetViewportState_Info(gui_SwapChain.extent)};
-  std::vector<VkDynamicState> dynamic_states{VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-  VkPipelineDynamicStateCreateInfo dynamic_state{Core::Data::GetDynamicState_Info(dynamic_states)};
-  VkPipelineRasterizationStateCreateInfo raterizer{Core::Data::DEFAULT_RASTERIZER_INFO()};
-  VkPipelineMultisampleStateCreateInfo multisampling{Core::Data::DEFAULT_MULTISAMPLING_INFO()};
-  VkPipelineDepthStencilStateCreateInfo depth_stencil{Core::Data::DEFAULT_DEPTHSTENCIL_INFO()};
 
-  auto color_blend_attachment_info{Core::Data::GetDefaultColorBlend_Attachment()};
-  VkPipelineColorBlendStateCreateInfo color_blend{
-      Core::Data::DEFAULT_COLORBLEND_INFO(color_blend_attachment_info)};
+  Core::Data::PipelinePreparation_Info pipeline_info{
+      Core::Source::RenderPipeline::Default_Pipeline(gui_SwapChain.extent, vertex_input)};
+
+  std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates = {
+      Core::Data::GetColorBlend_DEFAULT(),
+      Core::Data::GetColorBlend_DEFAULT(),
+  };
+  pipeline_info.color_blend = Core::Data::DEFAULT_COLORBLEND_INFO(blendAttachmentStates);
+  pipeline_info.color_blend.attachmentCount = 2;
+  if (sampler_flag != VK_SAMPLE_COUNT_1_BIT)
+    {
+      pipeline_info.multisampling = Core::Data::MULTISAMPLING_INFO_ENABLED(sampler_flag, 0.25f);
+    }
 
   // -------------------- pipeline layout ---------------------
 
   std::vector<VkPushConstantRange> ranges{};
-  model_Pipelinelayout(
+  model_Pipelinelayout.init(
       &gui_Device,
       std::vector<VkDescriptorSetLayout>{uni_setlayout.layout, old_school.layouts.texture.layout},
       ranges);
 
-  skybox_Pipelinelayout(
+  skybox_Pipelinelayout.init(
       &gui_Device,
       std::vector<VkDescriptorSetLayout>{uni_setlayout.layout, skybox_setlayout.layout},
       ranges);
 
   // -------------------- shader code ---------------------
-  std::string vert_code{Core::Utils::read_file(MODEL_VertexShader_code).data()};
-  auto vertex_shader_module{
-      Core::Utils::Glsl_ShaderCompiler(gui_Device.logical_device, EShLangVertex, vert_code)};
-  std::string frag_code{Core::Utils::read_file(MODEL_FragmentShader_code).data()};
-  auto fragment_shader_module{
-      Core::Utils::Glsl_ShaderCompiler(gui_Device.logical_device, EShLangFragment, frag_code)};
-  VkPipelineShaderStageCreateInfo vertex_stage{
-      Core::Source::Pipeline::Get_VertexShader_CreateInfo("main", vertex_shader_module)};
-  VkPipelineShaderStageCreateInfo frag_stage{
-      Core::Source::Pipeline::Get_FragmentShader_CreateInfo("main", fragment_shader_module)};
 
-  std::string skybox_vert_code{Core::Utils::read_file(SKYBOX_VertexShader_code).data()};
-  auto skybox_vertex_shader_module{
-      Core::Utils::Glsl_ShaderCompiler(gui_Device.logical_device, EShLangVertex, skybox_vert_code)};
-  std::string skybox_frag_code{Core::Utils::read_file(SKYBOX_FragmentShader_code).data()};
-  auto skybox_fragment_shader_module{Core::Utils::Glsl_ShaderCompiler(
-      gui_Device.logical_device, EShLangFragment, skybox_frag_code)};
-  VkPipelineShaderStageCreateInfo skybox_vertex_stage{
-      Core::Source::Pipeline::Get_VertexShader_CreateInfo("main", skybox_vertex_shader_module)};
-  VkPipelineShaderStageCreateInfo skybox_frag_stage{
-      Core::Source::Pipeline::Get_FragmentShader_CreateInfo("main", skybox_fragment_shader_module)};
+  auto model_shader_stages{Core::Source::Pipeline::EngineShaderStage(
+      &gui_Device, MODEL_VertexShader_code, MODEL_FragmentShader_code)};
 
-  std::vector<VkPipelineShaderStageCreateInfo> shader_stages{vertex_stage, frag_stage};
-  std::vector<VkPipelineShaderStageCreateInfo> skybox_shader_stages{skybox_vertex_stage,
-                                                                    skybox_frag_stage};
+  auto skybox_shader_stages{Core::Source::Pipeline::EngineShaderStage(
+      &gui_Device, SKYBOX_VertexShader_code, SKYBOX_FragmentShader_code)};
 
   // -------------------- pipeline initialization ---------------------
 
-  Core::Data::PipelinePreparation_Info pipeline_info{vertex_input,
-                                                     input_assembly,
-                                                     viewport_state,
-                                                     dynamic_state,
-                                                     raterizer,
-                                                     multisampling,
-                                                     depth_stencil,
-                                                     color_blend};
-
-  model_GraphicPipeline.init(
-      &gui_Device, &model_Pipelinelayout, &main_RenderPass, shader_stages, &pipeline_info, 0);
+  model_GraphicPipeline.init(&gui_Device,
+                             &model_Pipelinelayout,
+                             &hdr_renderpass.renderpass,
+                             model_shader_stages.stages,
+                             &pipeline_info,
+                             0);
 
   auto sky_box_attribute_descriptions =
       Core::Source::Model::GLTF_EngineModelVertexData::getAttributeDescriptions(
@@ -739,8 +838,8 @@ void SngoEngine::Imgui::ImguiApplication::construct_pipeline()
 
   skybox_GraphicPipeline.init(&gui_Device,
                               &skybox_Pipelinelayout,
-                              &main_RenderPass,
-                              skybox_shader_stages,
+                              &hdr_renderpass.renderpass,
+                              skybox_shader_stages.stages,
                               &pipeline_info,
                               0);
 }
@@ -759,7 +858,7 @@ void SngoEngine::Imgui::ImguiApplication::update_uniform_buffer(uint32_t current
   ubo.projection = main_Camera.matrices.perspective;
   ubo.modelView = main_Camera.matrices.view;
   ubo.inverseModelview = glm::inverse(main_Camera.matrices.view);
-  ubo.lodBias = 0.0f;
+  ubo.lodBias = exposure;
 
   memcpy(model_UniBuffer.mapped, &ubo, sizeof(ubo));
 }
@@ -826,7 +925,6 @@ void SngoEngine::Imgui::ImguiApplication::destroyer()
   gui_CommandPool.destroyer();
 
   gui_SwapChain.destroyer();
-  swapchain_framebuffers.destroyer();
 
   gui_Device.destroyer();
   gui_Surface.destroyer();

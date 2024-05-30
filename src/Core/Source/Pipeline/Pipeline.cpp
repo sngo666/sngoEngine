@@ -3,6 +3,7 @@
 #include <glslang/Public/ShaderLang.h>
 #include <vulkan/vulkan_core.h>
 
+#include "src/Core/Data.h"
 #include "src/Core/Device/LogicalDevice.hpp"
 #include "src/Core/Render/RenderPass.hpp"
 #include "src/Core/Utils/Utils.hpp"
@@ -69,6 +70,71 @@ VkPipelineShaderStageCreateInfo SngoEngine::Core::Source::Pipeline::Get_Fragment
   return fragment_create_info;
 }
 
+VkSpecializationMapEntry SngoEngine::Core::Source::Pipeline::Get_SpecMapEntry(uint32_t constantID,
+                                                                              uint32_t offset,
+                                                                              size_t size)
+{
+  VkSpecializationMapEntry specializationMapEntry{};
+  specializationMapEntry.constantID = constantID;
+  specializationMapEntry.offset = offset;
+  specializationMapEntry.size = size;
+  return specializationMapEntry;
+}
+
+VkSpecializationInfo SngoEngine::Core::Source::Pipeline::Get_SpecializationInfo(
+    uint32_t mapEntryCount,
+    const VkSpecializationMapEntry* mapEntries,
+    size_t dataSize,
+    const void* data)
+{
+  VkSpecializationInfo specializationInfo{};
+  specializationInfo.mapEntryCount = mapEntryCount;
+  specializationInfo.pMapEntries = mapEntries;
+  specializationInfo.dataSize = dataSize;
+  specializationInfo.pData = data;
+  return specializationInfo;
+}
+
+VkSpecializationInfo SngoEngine::Core::Source::Pipeline::Get_SpecializationInfo(
+    const std::vector<VkSpecializationMapEntry>& mapEntries,
+    size_t dataSize,
+    const void* data)
+{
+  VkSpecializationInfo specializationInfo{};
+  specializationInfo.mapEntryCount = static_cast<uint32_t>(mapEntries.size());
+  specializationInfo.pMapEntries = mapEntries.data();
+  specializationInfo.dataSize = dataSize;
+  specializationInfo.pData = data;
+  return specializationInfo;
+}
+
+//===========================================================================================================================
+// EnginePipelineLayout
+//===========================================================================================================================
+SngoEngine::Core::Source::Pipeline::EngineShaderStage::EngineShaderStage(
+    const Device::LogicalDevice::EngineDevice* _device,
+    const std::string& _vert_file,
+    const std::string& _frag_file,
+    const std::string& _vert_name,
+    const std::string& _frag_name)
+{
+  vert_name = _vert_name;
+  frag_name = _frag_name;
+
+  std::string vert_code{Utils::read_file(_vert_file).data()};
+  vertex_shader_module = {
+      Utils::Glsl_ShaderCompiler(_device->logical_device, EShLangVertex, vert_code)};
+  stages[0] = {Source::Pipeline::Get_VertexShader_CreateInfo(vert_name, vertex_shader_module)};
+
+  std::string frag_code{Utils::read_file(_frag_file).data()};
+  fragment_shader_module = {
+      Utils::Glsl_ShaderCompiler(_device->logical_device, EShLangFragment, frag_code)};
+  stages[1] = {Source::Pipeline::Get_FragmentShader_CreateInfo(frag_name, fragment_shader_module)};
+}
+//===========================================================================================================================
+// EnginePipelineLayout
+//===========================================================================================================================
+
 void SngoEngine::Core::Source::Pipeline::EnginePipelineLayout::creator(
     const Device::LogicalDevice::EngineDevice* _device,
     const std::vector<VkDescriptorSetLayout>& _layouts,
@@ -110,8 +176,7 @@ void SngoEngine::Core::Source::Pipeline::EngineGraphicPipeline::creator(
     uint32_t _subpass,
     const VkAllocationCallbacks* alloc)
 {
-  if (pipeline != VK_NULL_HANDLE)
-    vkDestroyPipeline(device->logical_device, pipeline, Alloc);
+  destroyer();
   Alloc = alloc;
   device = _device;
   render_pass = _render_pass;
@@ -140,6 +205,41 @@ void SngoEngine::Core::Source::Pipeline::EngineGraphicPipeline::creator(
                                 &graphic_pipeline_create_info,
                                 Alloc,
                                 &pipeline)
+      != VK_SUCCESS)
+    {
+      throw std::runtime_error("failed to create graphic pipeline!");
+    }
+}
+
+void SngoEngine::Core::Source::Pipeline::EngineGraphicPipeline::creator(
+    const Device::LogicalDevice::EngineDevice* _device,
+    std::vector<VkGraphicsPipelineCreateInfo>& _infos,
+    VkPipelineCache _cahce,
+    const VkAllocationCallbacks* alloc)
+{
+  destroyer();
+  Alloc = alloc;
+  device = _device;
+
+  if (vkCreateGraphicsPipelines(
+          device->logical_device, _cahce, _infos.size(), _infos.data(), Alloc, &pipeline)
+      != VK_SUCCESS)
+    {
+      throw std::runtime_error("failed to create graphic pipeline!");
+    }
+}
+
+void SngoEngine::Core::Source::Pipeline::EngineGraphicPipeline::creator(
+    const Device::LogicalDevice::EngineDevice* _device,
+    VkGraphicsPipelineCreateInfo _info,
+    VkPipelineCache _cahce,
+    const VkAllocationCallbacks* alloc)
+{
+  destroyer();
+  Alloc = alloc;
+  device = _device;
+
+  if (vkCreateGraphicsPipelines(device->logical_device, _cahce, 1, &_info, Alloc, &pipeline)
       != VK_SUCCESS)
     {
       throw std::runtime_error("failed to create graphic pipeline!");

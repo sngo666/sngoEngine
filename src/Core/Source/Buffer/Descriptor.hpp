@@ -115,6 +115,10 @@ struct EngineDescriptorSet
   {
     creator(_device, args...);
   }
+  VkDescriptorSet operator()() const
+  {
+    return descriptor_set;
+  }
   explicit operator VkDescriptorSet() const
   {
     return descriptor_set;

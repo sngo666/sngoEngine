@@ -33,6 +33,9 @@ void SngoEngine::Core::Device::LogicalDevice::EngineDevice::creator(
   queue_family = indices;
 
   VkPhysicalDeviceFeatures device_features{};
+  device_features.sampleRateShading = VK_TRUE;
+  device_features.samplerAnisotropy = VK_TRUE;
+
   // device_features.samplerAnisotropy = VK_TRUE;
 
   std::vector<VkDeviceQueueCreateInfo> queue_create_infos;

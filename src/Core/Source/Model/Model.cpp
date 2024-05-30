@@ -132,6 +132,10 @@ void SngoEngine::Core::Source::Model::gltf_LoadMaterial(
               static_cast<uint32_t>(glTFMaterial.values["baseColorTexture"].TextureIndex())};
           _materials[i].base_color = {_index, lambda_get_texture(_index)};
         }
+      else
+        {
+          _materials[i].base_color = {static_cast<uint32_t>(-1), &_imgs.back()};
+        }
 
       // Metallic Roughness Texture
       if (glTFMaterial.values.find("metallicRoughnessTexture") != glTFMaterial.values.end())
@@ -779,4 +783,12 @@ void SngoEngine::Core::Source::Model::EngineCubeMap::destroyer()
 {
   model.destroyer();
   cube_img.destroyer();
+}
+
+void SngoEngine::Core::Source::Model::EngineCubeMap::draw(VkCommandBuffer _command_buffer,
+                                                          VkPipelineLayout _layout,
+                                                          uint32_t _bindset)
+{
+  model.bind_buffers(_command_buffer);
+  model.draw(_command_buffer, _layout, _bindset, Core::Source::Model::None);
 }

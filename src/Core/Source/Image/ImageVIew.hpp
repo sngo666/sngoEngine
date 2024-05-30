@@ -33,6 +33,10 @@ struct EngineImageView
   {
     creator(_device, args...);
   }
+  VkImageView operator()() const
+  {
+    return image_view;
+  }
   ~EngineImageView()
   {
     destroyer();

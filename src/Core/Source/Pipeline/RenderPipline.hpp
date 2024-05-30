@@ -3,6 +3,8 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <vector>
+
 #include "src/Core/Device/LogicalDevice.hpp"
 #include "src/Core/Render/FrameBuffer.hpp"
 #include "src/Core/Render/RenderPass.hpp"
@@ -20,8 +22,19 @@ namespace SngoEngine::Core::Source::RenderPipeline
 // pipeline info function
 //===========================================================================================================================
 
+Core::Data::PipelinePreparation_Info Default_Pipeline(VkExtent2D _extent,
+                                                      VkPipelineVertexInputStateCreateInfo v_input);
+
 Core::Data::PipelinePreparation_Info Skybox_Pipeline(VkExtent2D _extent,
                                                      VkPipelineVertexInputStateCreateInfo v_input);
+
+Core::Data::PipelinePreparation_Info Bloomfilter_Pipeline(
+    VkExtent2D _extent,
+    VkPipelineVertexInputStateCreateInfo v_input);
+
+SngoEngine::Core::Data::PipelinePreparation_Info ShadowMapping_Pipeline(
+    VkExtent2D _extent,
+    VkPipelineVertexInputStateCreateInfo v_input);
 
 //===========================================================================================================================
 // EngineFrameBufferAttachment
@@ -32,13 +45,21 @@ struct EngineFrameBufferAttachment
   Image::EngineImage img;
   ImageView::EngineImageView view;
   VkFormat format{VK_FORMAT_UNDEFINED};
+  const Device::LogicalDevice::EngineDevice* device{};
 
   EngineFrameBufferAttachment() = default;
-  void init(Device::LogicalDevice::EngineDevice* _device,
+  ~EngineFrameBufferAttachment()
+  {
+    destroyer();
+  }
+
+  void init(const Device::LogicalDevice::EngineDevice* _device,
             VkFormat _format,
             VkImageUsageFlagBits _usage,
             VkExtent2D _extent,
-            VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT);
+            VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT,
+            uint32_t _mipmap = 1);
+  void destroyer();
 };
 
 //===========================================================================================================================
@@ -50,15 +71,20 @@ struct EngineOffscreenHDR_RenderPass
   EngineFrameBufferAttachment attchment_FloatingPoint_0{};
   EngineFrameBufferAttachment attchment_FloatingPoint_1{};
   EngineFrameBufferAttachment attchment_Depth{};
+  EngineFrameBufferAttachment attchment_Resolve_0{};
+  EngineFrameBufferAttachment attchment_Resolve_1{};
 
   Render::EngineFrameBuffer framebuffer{};
   Render::RenderPass::EngineRenderPass renderpass{};
   Image::EngineSampler sampler{};
 
+  const Device::LogicalDevice::EngineDevice* device;
+
   VkExtent2D extent{};
 
-  void init(Device::LogicalDevice::EngineDevice* _device,
+  void init(const Device::LogicalDevice::EngineDevice* _device,
             VkExtent2D _extent,
+            VkSampleCountFlagBits samplers,
             const VkAllocationCallbacks* alloc = nullptr);
 };
 
@@ -74,16 +100,40 @@ struct EngineBloomFilter_RenderPass
   Render::RenderPass::EngineRenderPass renderpass{};
   Image::EngineSampler sampler{};
 
+  Core::Source::Descriptor::EngineDescriptorSetLayout bloom_setlayout;
+  Core::Source::Descriptor::EngineDescriptorSet bloom_set;
+
+  Pipeline::EnginePipelineLayout pipeline_layout;
+  std::vector<Pipeline::EngineGraphicPipeline> pipelines{2};
+
+  const Device::LogicalDevice::EngineDevice* device{};
+
   VkExtent2D extent{};
 
-  void init(Device::LogicalDevice::EngineDevice* _device,
+  void destroyer();
+
+  void init(const Device::LogicalDevice::EngineDevice* _device,
             VkExtent2D _extent,
             const VkAllocationCallbacks* alloc = nullptr);
+  void construct_descriptor(Descriptor::EngineDescriptorPool* _pool,
+                            std::vector<VkDescriptorImageInfo>& imginfos,
+                            const VkAllocationCallbacks* alloc = nullptr);
+  void construct_pipeline(std::vector<VkPipelineShaderStageCreateInfo>& _shader_stage,
+                          Pipeline::EnginePipelineLayout* _layout,
+                          Render::RenderPass::EngineRenderPass* _render_pass,
+                          VkSampleCountFlagBits _sampler_flag,
+                          const VkAllocationCallbacks* alloc = nullptr);
+  ~EngineBloomFilter_RenderPass()
+  {
+    destroyer();
+  }
 };
 
 //===========================================================================================================================
 // EngineMSAA_RenderPass
 //===========================================================================================================================
+
+VkSampleCountFlagBits MSAA_maxAvailableSampleCount(Device::LogicalDevice::EngineDevice* _device);
 
 struct EngineMSAA_RenderPass
 {
@@ -93,14 +143,87 @@ struct EngineMSAA_RenderPass
   Render::EngineFrameBuffers framebuffers{};
   Render::RenderPass::EngineRenderPass renderpass{};
 
+  Core::Source::Descriptor::EngineDescriptorSetLayout msaa_setlayout;
+  Core::Source::Descriptor::EngineDescriptorSet msaa_set;
+
+  Pipeline::EnginePipelineLayout pipeline_layout;
+  Pipeline::EngineGraphicPipeline pipeline;
+
   VkExtent2D extent{};
+
+  Device::LogicalDevice::EngineDevice* device;
 
   void init(Device::LogicalDevice::EngineDevice* _device,
             VkExtent2D _extent,
             VkFormat color_format,
             VkSampleCountFlagBits samplers,
             SwapChain::EngineSwapChain* swap_chain,
+            bool contaion_gui_subpass = true,
             const VkAllocationCallbacks* alloc = nullptr);
+  void destroyer();
+
+  void construct_descriptor(Descriptor::EngineDescriptorPool* _pool,
+                            std::vector<VkDescriptorImageInfo>& imginfos,
+                            const VkAllocationCallbacks* alloc = nullptr);
+
+  void construct_pipeline(std::vector<VkPipelineShaderStageCreateInfo>& _shader_stage,
+                          VkSampleCountFlagBits _sampler_flags,
+                          const VkAllocationCallbacks* alloc = nullptr);
+
+  ~EngineMSAA_RenderPass()
+  {
+    destroyer();
+  }
+};
+
+//===========================================================================================================================
+// EngineShadowMap_RenderPass
+//===========================================================================================================================
+
+struct EngineShadowMap_RenderPass
+{
+  EngineFrameBufferAttachment attchment_Depth{};
+
+  Device::LogicalDevice::EngineDevice* device;
+  Render::EngineFrameBuffer framebuffer{};
+  Render::RenderPass::EngineRenderPass renderpass{};
+  Image::EngineSampler sampler{};
+
+  Core::Source::Descriptor::EngineDescriptorSetLayout SM_setlayout;
+  struct
+  {
+    Core::Source::Descriptor::EngineDescriptorSet debug;
+    Core::Source::Descriptor::EngineDescriptorSet offscreen;
+    Core::Source::Descriptor::EngineDescriptorSet scene;
+  } sets;
+
+  Pipeline::EnginePipelineLayout pipeline_layout;
+
+  struct
+  {
+    Pipeline::EngineGraphicPipeline Debug;
+    Pipeline::EngineGraphicPipeline PCF;
+    Pipeline::EngineGraphicPipeline NoPCF;
+    Pipeline::EngineGraphicPipeline Offscreen;
+  } pipelines;
+
+  VkExtent2D extent{};
+
+  void destroyer();
+
+  void init(Device::LogicalDevice::EngineDevice* _device,
+            VkExtent2D _extent,
+            const VkAllocationCallbacks* alloc = nullptr);
+  void construct_descriptor(Descriptor::EngineDescriptorPool* _pool,
+                            VkDescriptorBufferInfo debug_buffer_info,
+                            VkDescriptorBufferInfo offscreen_buffer_info,
+                            VkDescriptorBufferInfo scene_buffer_info,
+                            const VkAllocationCallbacks* alloc = nullptr);
+  void construct_pipeline(std::vector<VkPipelineShaderStageCreateInfo>& _debug_stage,
+                          std::vector<VkPipelineShaderStageCreateInfo>& _scene_stage,
+                          std::vector<VkPipelineShaderStageCreateInfo>& _offscreen_stage,
+                          VkPipelineVertexInputStateCreateInfo v_input,
+                          const VkAllocationCallbacks* alloc = nullptr);
 };
 
 }  // namespace SngoEngine::Core::Source::RenderPipeline

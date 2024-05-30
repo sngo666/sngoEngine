@@ -8,6 +8,10 @@
 namespace SngoEngine::Core::Source::Image
 {
 
+VkBool32 FormatIs_Filterable(VkPhysicalDevice physicalDevice,
+                             VkFormat format,
+                             VkImageTiling tiling);
+
 //===========================================================================================================================
 // EngineSampler
 //===========================================================================================================================
@@ -35,6 +39,11 @@ struct EngineSampler
   {
     creator(_device, args...);
   }
+  VkSampler operator()() const
+  {
+    return sampler;
+  }
+
   ~EngineSampler()
   {
     destroyer();

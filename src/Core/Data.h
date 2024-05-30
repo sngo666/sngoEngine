@@ -145,7 +145,7 @@ struct FrameBufferCreate_Info : public VkFramebufferCreateInfo
                                 _info.layers)
   {
   }
-FrameBufferCreate_Info(VkRenderPass _renderPass,
+  FrameBufferCreate_Info(VkRenderPass _renderPass,
                          std::vector<VkImageView>& _attachments,
                          const VkExtent3D _extent,
                          uint32_t _layers = 1,
@@ -372,16 +372,31 @@ VkPipelineDynamicStateCreateInfo GetDynamicState_Info(
 VkPipelineInputAssemblyStateCreateInfo GetInputAssembly_Info();
 
 VkPipelineRasterizationStateCreateInfo DEFAULT_RASTERIZER_INFO();
-VkPipelineMultisampleStateCreateInfo DEFAULT_MULTISAMPLING_INFO();
+VkPipelineMultisampleStateCreateInfo MULTISAMPLING_INFO_DEFAULT();
+VkPipelineMultisampleStateCreateInfo MULTISAMPLING_INFO_ENABLED(VkSampleCountFlagBits _samplecount,
+                                                                float _minsampleshading);
+
 VkPipelineDepthStencilStateCreateInfo DEFAULT_DEPTHSTENCIL_INFO();
+VkPipelineDepthStencilStateCreateInfo DEFAULT_DEPTHSTENCIL_INFO(VkCompareOp compare_op);
 VkPipelineDepthStencilStateCreateInfo DEFAULT_DEPTHSTENCIL_DISABLED_INFO();
 
-VkPipelineColorBlendAttachmentState GetDefaultColorBlend_Attachment();
+VkPipelineColorBlendAttachmentState GetColorBlend_DEFAULT();
+VkPipelineColorBlendAttachmentState GetColorBlend_BLOOMFILTER();
+
 VkPipelineColorBlendStateCreateInfo DEFAULT_COLORBLEND_INFO(
-    VkPipelineColorBlendAttachmentState color_blend_attachment_info);
+    VkPipelineColorBlendAttachmentState* color_blend_attachment_info);
+VkPipelineColorBlendStateCreateInfo DEFAULT_COLORBLEND_INFO(
+    std::vector<VkPipelineColorBlendAttachmentState>& _attachments);
 
 struct PipelinePreparation_Info
 {
+  // base data strcuture
+
+  VkPipelineColorBlendAttachmentState color_blend_attachment_info;
+
+  std::vector<VkDynamicState> dynamic_states;
+
+  // info for pipeline initialization
   VkPipelineVertexInputStateCreateInfo vertex_input;
 
   VkPipelineInputAssemblyStateCreateInfo input_assembly;

@@ -46,6 +46,10 @@ struct EnginePhysicalDevice
   {
     creator(args...);
   }
+  VkPhysicalDevice operator()() const
+  {
+    return physical_device;
+  }
   explicit operator VkPhysicalDevice() const
   {
     return physical_device;

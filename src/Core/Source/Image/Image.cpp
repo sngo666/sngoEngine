@@ -3,12 +3,14 @@
 #include <vulkan/vulkan_core.h>
 #include <winnt.h>
 
+#include <climits>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
+#include <vector>
 
 #include "fmt/core.h"
 #include "ktx.h"
@@ -710,12 +712,11 @@ void SngoEngine::Core::Source::Image::Get_EmptyTextureImg(
   uint32_t height{1};
 
   size_t bufferSize = static_cast<size_t>(width * height) * 4;
-  unsigned char* buffer = new unsigned char[bufferSize];
-  memset(buffer, 0, bufferSize);
+  std::vector<uint8_t> buffer = {UCHAR_MAX, UCHAR_MAX, UCHAR_MAX, UCHAR_MAX};
 
-  img.init(_device, _pool, EnginePixelData{buffer, width, height, bufferSize});
+  // memset(buffer.data(), 0, bufferSize);
 
-  delete[] buffer;
+  img.init(_device, _pool, EnginePixelData{buffer.data(), width, height, bufferSize});
 }
 
 //===========================================================================================================================

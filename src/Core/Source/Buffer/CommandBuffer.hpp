@@ -153,6 +153,10 @@ struct EngineCommandBuffer
   {
     creator(_device, args...);
   }
+  VkCommandBuffer operator()() const
+  {
+    return command_buffer;
+  }
   ~EngineCommandBuffer()
   {
     destroyer();

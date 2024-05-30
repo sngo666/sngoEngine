@@ -2,6 +2,26 @@
 
 #include <vulkan/vulkan_core.h>
 
+VkBool32 SngoEngine::Core::Source::Image::FormatIs_Filterable(VkPhysicalDevice physicalDevice,
+                                                              VkFormat format,
+                                                              VkImageTiling tiling)
+{
+  VkFormatProperties formatProps;
+  vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &formatProps);
+
+  if (tiling == VK_IMAGE_TILING_OPTIMAL)
+    return formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
+
+  if (tiling == VK_IMAGE_TILING_LINEAR)
+    return formatProps.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
+
+  return false;
+}
+
+//===========================================================================================================================
+// EngineSampler
+//===========================================================================================================================
+
 VkSamplerCreateInfo SngoEngine::Core::Source::Image::Get_Default_Sampler(
     const Device::LogicalDevice::EngineDevice* device,
     float mip_level,
@@ -22,7 +42,7 @@ VkSamplerCreateInfo SngoEngine::Core::Source::Image::Get_Default_Sampler(
   VkPhysicalDeviceProperties properties{};
   vkGetPhysicalDeviceProperties(device->pPD->physical_device, &properties);
 
-  sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+  sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
   sampler_info.unnormalizedCoordinates = VK_FALSE;
   sampler_info.compareEnable = VK_FALSE;
   sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;

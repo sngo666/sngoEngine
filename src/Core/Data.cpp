@@ -2,7 +2,9 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <memory>
 #include <stdexcept>
+#include <vector>
 
 VkPipelineVertexInputStateCreateInfo SngoEngine::Core::Data::GetVertexInput_Info(
     const std::vector<VkVertexInputBindingDescription>& bindings,
@@ -83,13 +85,30 @@ VkPipelineRasterizationStateCreateInfo SngoEngine::Core::Data::DEFAULT_RASTERIZE
   return rasterizer_info;
 }
 
-VkPipelineMultisampleStateCreateInfo SngoEngine::Core::Data::DEFAULT_MULTISAMPLING_INFO()
+VkPipelineMultisampleStateCreateInfo SngoEngine::Core::Data::MULTISAMPLING_INFO_DEFAULT()
 {
   VkPipelineMultisampleStateCreateInfo multisampling{};
   multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
   multisampling.sampleShadingEnable = VK_FALSE;
   multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
   multisampling.minSampleShading = 1.0f;
+  multisampling.pSampleMask = nullptr;
+  multisampling.alphaToCoverageEnable = VK_FALSE;
+  multisampling.alphaToOneEnable = VK_FALSE;
+  multisampling.flags = 0;
+
+  return multisampling;
+}
+
+VkPipelineMultisampleStateCreateInfo SngoEngine::Core::Data::MULTISAMPLING_INFO_ENABLED(
+    VkSampleCountFlagBits _samplecount,
+    float _minsampleshading)
+{
+  VkPipelineMultisampleStateCreateInfo multisampling{};
+  multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+  multisampling.sampleShadingEnable = VK_TRUE;
+  multisampling.rasterizationSamples = _samplecount;
+  multisampling.minSampleShading = _minsampleshading;
   multisampling.pSampleMask = nullptr;
   multisampling.alphaToCoverageEnable = VK_FALSE;
   multisampling.alphaToOneEnable = VK_FALSE;
@@ -104,6 +123,22 @@ VkPipelineDepthStencilStateCreateInfo SngoEngine::Core::Data::DEFAULT_DEPTHSTENC
   depth_stencil_info.depthTestEnable = VK_TRUE;
   depth_stencil_info.depthWriteEnable = VK_TRUE;
   depth_stencil_info.depthCompareOp = VK_COMPARE_OP_LESS;
+  depth_stencil_info.depthBoundsTestEnable = VK_FALSE;
+  depth_stencil_info.minDepthBounds = 0.0f;
+  depth_stencil_info.maxDepthBounds = 1.0f;
+  depth_stencil_info.stencilTestEnable = VK_FALSE;
+
+  return depth_stencil_info;
+}
+
+VkPipelineDepthStencilStateCreateInfo SngoEngine::Core::Data::DEFAULT_DEPTHSTENCIL_INFO(
+    VkCompareOp compare_op)
+{
+  VkPipelineDepthStencilStateCreateInfo depth_stencil_info{};
+  depth_stencil_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+  depth_stencil_info.depthTestEnable = VK_TRUE;
+  depth_stencil_info.depthWriteEnable = VK_TRUE;
+  depth_stencil_info.depthCompareOp = compare_op;
   depth_stencil_info.depthBoundsTestEnable = VK_FALSE;
   depth_stencil_info.minDepthBounds = 0.0f;
   depth_stencil_info.maxDepthBounds = 1.0f;
@@ -127,32 +162,71 @@ VkPipelineDepthStencilStateCreateInfo SngoEngine::Core::Data::DEFAULT_DEPTHSTENC
   return depth_stencil_info;
 }
 
-VkPipelineColorBlendAttachmentState SngoEngine::Core::Data::GetDefaultColorBlend_Attachment()
+VkPipelineColorBlendAttachmentState SngoEngine::Core::Data::GetColorBlend_DEFAULT()
 {
   VkPipelineColorBlendAttachmentState color_blend_attachment_info{};
   color_blend_attachment_info.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
                                                | VK_COLOR_COMPONENT_B_BIT
                                                | VK_COLOR_COMPONENT_A_BIT;
   color_blend_attachment_info.blendEnable = VK_FALSE;
+
+  color_blend_attachment_info.colorBlendOp = VK_BLEND_OP_ADD;
   color_blend_attachment_info.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
   color_blend_attachment_info.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-  color_blend_attachment_info.colorBlendOp = VK_BLEND_OP_ADD;
+
+  color_blend_attachment_info.alphaBlendOp = VK_BLEND_OP_ADD;
   color_blend_attachment_info.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
   color_blend_attachment_info.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+
+  return color_blend_attachment_info;
+}
+
+VkPipelineColorBlendAttachmentState SngoEngine::Core::Data::GetColorBlend_BLOOMFILTER()
+{
+  VkPipelineColorBlendAttachmentState color_blend_attachment_info{};
+
+  color_blend_attachment_info.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
+                                               | VK_COLOR_COMPONENT_B_BIT
+                                               | VK_COLOR_COMPONENT_A_BIT;
+  color_blend_attachment_info.blendEnable = VK_TRUE;
+
+  color_blend_attachment_info.colorBlendOp = VK_BLEND_OP_ADD;
+  color_blend_attachment_info.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+  color_blend_attachment_info.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+
   color_blend_attachment_info.alphaBlendOp = VK_BLEND_OP_ADD;
+  color_blend_attachment_info.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+  color_blend_attachment_info.dstAlphaBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
 
   return color_blend_attachment_info;
 }
 
 VkPipelineColorBlendStateCreateInfo SngoEngine::Core::Data::DEFAULT_COLORBLEND_INFO(
-    VkPipelineColorBlendAttachmentState color_blend_attachment_info)
+    VkPipelineColorBlendAttachmentState* p_color_blend_attachment_info)
 {
   VkPipelineColorBlendStateCreateInfo color_blend_info{};
   color_blend_info.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
   color_blend_info.logicOpEnable = VK_FALSE;
   color_blend_info.logicOp = VK_LOGIC_OP_COPY;
   color_blend_info.attachmentCount = 1;
-  color_blend_info.pAttachments = &color_blend_attachment_info;
+  color_blend_info.pAttachments = p_color_blend_attachment_info;
+  color_blend_info.blendConstants[0] = 0.0f;
+  color_blend_info.blendConstants[1] = 0.0f;
+  color_blend_info.blendConstants[2] = 0.0f;
+  color_blend_info.blendConstants[3] = 0.0f;
+
+  return color_blend_info;
+}
+
+VkPipelineColorBlendStateCreateInfo SngoEngine::Core::Data::DEFAULT_COLORBLEND_INFO(
+    std::vector<VkPipelineColorBlendAttachmentState>& _attachments)
+{
+  VkPipelineColorBlendStateCreateInfo color_blend_info{};
+  color_blend_info.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+  color_blend_info.logicOpEnable = VK_FALSE;
+  color_blend_info.logicOp = VK_LOGIC_OP_COPY;
+  color_blend_info.attachmentCount = _attachments.size();
+  color_blend_info.pAttachments = _attachments.data();
   color_blend_info.blendConstants[0] = 0.0f;
   color_blend_info.blendConstants[1] = 0.0f;
   color_blend_info.blendConstants[2] = 0.0f;

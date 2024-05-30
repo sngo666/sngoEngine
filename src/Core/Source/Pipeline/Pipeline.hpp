@@ -25,6 +25,36 @@ VkPipelineShaderStageCreateInfo Get_FragmentShader_CreateInfo(
 VkPipelineShaderStageCreateInfo Get_FragmentShader_CreateInfo(const std::string& _pName,
                                                               const VkShaderModule& compiled_code);
 
+VkSpecializationInfo Get_SpecializationInfo(const std::vector<VkSpecializationMapEntry>& mapEntries,
+                                            size_t dataSize,
+                                            const void* data);
+VkSpecializationInfo Get_SpecializationInfo(uint32_t mapEntryCount,
+                                            const VkSpecializationMapEntry* mapEntries,
+                                            size_t dataSize,
+                                            const void* data);
+
+VkSpecializationMapEntry Get_SpecMapEntry(uint32_t constantID, uint32_t offset, size_t size);
+
+//===========================================================================================================================
+// EnginePipelineLayout
+//===========================================================================================================================
+
+struct EngineShaderStage
+{
+  std::string vert_name{};
+  std::string frag_name{};
+
+  std::vector<VkPipelineShaderStageCreateInfo> stages{2};
+  VkShaderModule vertex_shader_module;
+  VkShaderModule fragment_shader_module;
+
+  explicit EngineShaderStage(const Device::LogicalDevice::EngineDevice* _device,
+                             const std::string& _vert_file,
+                             const std::string& _frag_file,
+                             const std::string& _vert_name = "main",
+                             const std::string& _frag_name = "main");
+};
+
 //===========================================================================================================================
 // EnginePipelineLayout
 //===========================================================================================================================
@@ -40,9 +70,13 @@ struct EnginePipelineLayout
     creator(_device, args...);
   }
   template <typename... Args>
-  void operator()(const Device::LogicalDevice::EngineDevice* _device, Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
+  }
+  VkPipelineLayout operator()() const
+  {
+    return pipeline_layout;
   }
   ~EnginePipelineLayout()
   {
@@ -71,18 +105,19 @@ struct EngineGraphicPipeline
   EngineGraphicPipeline(EngineGraphicPipeline&&) noexcept = default;
   EngineGraphicPipeline& operator=(EngineGraphicPipeline&&) noexcept = default;
   template <typename... Args>
-  EngineGraphicPipeline(const Device::LogicalDevice::EngineDevice* _device,
-                        const EnginePipelineLayout* layout,
-                        Args... args)
+  explicit EngineGraphicPipeline(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
-    creator(_device, layout, args...);
+    creator(_device, args...);
   }
   template <typename... Args>
-  void init(const Device::LogicalDevice::EngineDevice* _device,
-            const EnginePipelineLayout* layout,
-            Args... args)
+  void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
-    creator(_device, layout, args...);
+    creator(_device, args...);
+  }
+
+  VkPipeline operator()() const
+  {
+    return pipeline;
   }
   ~EngineGraphicPipeline()
   {
@@ -101,6 +136,14 @@ struct EngineGraphicPipeline
                const std::vector<VkPipelineShaderStageCreateInfo>& shader_stages,
                const Data::PipelinePreparation_Info* _info,
                uint32_t _subpass,
+               const VkAllocationCallbacks* alloc = nullptr);
+  void creator(const Device::LogicalDevice::EngineDevice* _device,
+               VkGraphicsPipelineCreateInfo _info,
+               VkPipelineCache _cahce = nullptr,
+               const VkAllocationCallbacks* alloc = nullptr);
+  void creator(const Device::LogicalDevice::EngineDevice* _device,
+               std::vector<VkGraphicsPipelineCreateInfo>& _infos,
+               VkPipelineCache _cahce = nullptr,
                const VkAllocationCallbacks* alloc = nullptr);
   const VkAllocationCallbacks* Alloc{};
 };

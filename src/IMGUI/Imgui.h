@@ -22,6 +22,7 @@
 #include "src/Core/Source/Model/Camera.hpp"
 #include "src/Core/Source/Model/Model.hpp"
 #include "src/Core/Source/Pipeline/Pipeline.hpp"
+#include "src/Core/Source/Pipeline/RenderPipline.hpp"
 #include "src/Core/Source/SwapChain/SwapChain.hpp"
 #include "src/GLFWEXT/Surface.h"
 #include "src/IMGUI/include/imgui_impl_vulkan.h"
@@ -38,7 +39,13 @@ const std::string MODEL_FragmentShader_code{"./shader/frag_shader_normal.fs"};
 const std::string SKYBOX_VertexShader_code{"./shader/vertex_shader_cubemap.vs"};
 const std::string SKYBOX_FragmentShader_code{"./shader/frag_shader_cubemap.fs"};
 
-const std::string MAIN_OLD_SCHOOL{"./source/old_school/scene.gltf"};
+const std::string BLOOM_VertexShader_code{"./shader/vertex_shader_bloom.vs"};
+const std::string BLOOM_FragmentShader_code{"./shader/frag_shader_bloom.fs"};
+
+const std::string MSAA_VertexShader_code{"./shader/vertex_shader_composition.vs"};
+const std::string MSAA_FragmentShader_code{"./shader/frag_shader_composition.fs"};
+
+const std::string MAIN_OLD_SCHOOL{"./source/samplescene.gltf"};
 const std::string CUBEMAP_FILE{"./source/cube.gltf"};
 const std::string CUBEMAP_TEXTURE{"./textures/cubemap_space.ktx"};
 
@@ -82,11 +89,10 @@ struct ImguiApplication
   Core::Device::PhysicalDevice::EnginePhysicalDevice gui_PhysicalDevice{};
   Core::Source::Descriptor::EngineDescriptorPool gui_DescriptorPool{};
   Core::Source::SwapChain::EngineSwapChain gui_SwapChain;
-  Core::Render::EngineFrameBuffers swapchain_framebuffers;
 
-  Core::Render::RenderPass::EngineRenderPass main_RenderPass{};
-  Core::Source::DepthResource::EngineDepthResource gui_DepthResource;
-  Core::Source::DepthResource::EngineDepthResource model_DepthResource;
+  Core::Source::RenderPipeline::EngineMSAA_RenderPass msaa_renderpass;
+  Core::Source::RenderPipeline::EngineOffscreenHDR_RenderPass hdr_renderpass;
+  Core::Source::RenderPipeline::EngineBloomFilter_RenderPass bloom_renderpass;
 
   Core::Source::Buffer::EngineCommandPool gui_CommandPool;
   std::vector<Core::Source::Buffer::EngineCommandBuffer> gui_CommandBuffers;
@@ -114,7 +120,7 @@ struct ImguiApplication
   Core::Source::Model::EngineCubeMap sky_box;
   EngineCamera main_Camera;
 
-  std::array<VkClearValue, 2> gui_Clearvalue{};
+  std::vector<VkClearValue> gui_Clearvalue{5};
 
   struct
   {
@@ -129,7 +135,7 @@ struct ImguiApplication
 
   void binding_keymapping(ImGuiIO& io);
   int init();
-  void Render_Frame(ImDrawData* draw_data, std::array<VkClearValue, 2> gui_Clearvalue);
+  void Render_Frame(ImDrawData* draw_data, std::vector<VkClearValue>& gui_Clearvalue);
   void Present_Frame();
   void record_command_buffer(VkCommandBuffer m_command_buffer);
   void construct_pipeline();
@@ -146,8 +152,13 @@ struct ImguiApplication
   uint32_t Frame_Index{};
   uint32_t Semaphore_Index{};
   uint32_t imageIndex{};
+  bool render_skybox{true};
+  bool use_sampler_shading{true};
+  float exposure{1.00f};
 
+  bool will_bloom{true};
   bool gui_SwapChainRebuild = false;
+  VkSampleCountFlagBits sampler_flag{VK_SAMPLE_COUNT_1_BIT};
 
  private:
   std::string mainWindow_Title;

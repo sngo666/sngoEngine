@@ -31,16 +31,20 @@ struct EngineFrameBuffer
   {
     creator(_device, args...);
   }
+  VkFramebuffer operator()() const
+  {
+    return frame_buffer;
+  }
   ~EngineFrameBuffer()
   {
     destroyer();
   }
+  void destroyer();
 
   VkFramebuffer frame_buffer{};
   const Device::LogicalDevice::EngineDevice* device{};
 
  private:
-  void destroyer();
   void creator(const SngoEngine::Core::Device::LogicalDevice::EngineDevice* _device,
                VkRenderPass _render_pass,
                const std::vector<VkImageView>& _attachments,

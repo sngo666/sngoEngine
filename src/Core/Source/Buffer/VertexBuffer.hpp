@@ -39,6 +39,8 @@ concept VertexStructure = requires(T t1, T t2) {
 namespace SngoEngine::Core::Source::Buffer
 {
 
+VkPipelineVertexInputStateCreateInfo Get_EmptyVertexInputState();
+
 //===========================================================================================================================
 // Vertex Struct
 //===========================================================================================================================

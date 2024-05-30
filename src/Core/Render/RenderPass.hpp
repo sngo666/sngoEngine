@@ -18,6 +18,9 @@ SngoEngine::Core::Data::AttachmentData_Info DEFAULT_ATTACHMENTDATA(
     VkFormat format,
     VkPhysicalDevice physical_device);
 
+VkViewport Get_ViewPort(float width, float height, float minDepth, float maxDepth);
+VkRect2D Get_Rect2D(uint32_t width, uint32_t height, int32_t offsetX, int32_t offsetY);
+
 //===========================================================================================================================
 // EngineRenderPass
 //===========================================================================================================================
@@ -37,6 +40,10 @@ struct EngineRenderPass
   void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
+  }
+  VkRenderPass operator()() const
+  {
+    return render_pass;
   }
   ~EngineRenderPass()
   {

@@ -915,6 +915,7 @@ struct EngineCubeMap
                            Descriptor::EngineDescriptorSetLayout& _layout,
                            Descriptor::EngineDescriptorSet& _set,
                            uint32_t binding);
+  void draw(VkCommandBuffer _command_buffer, VkPipelineLayout _layout, uint32_t _bindset);
 
   EngineGltfModel model;
   Image::EngineCubeTexture cube_img;

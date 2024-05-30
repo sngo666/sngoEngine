@@ -97,6 +97,36 @@ SngoEngine::Core::Render::RenderPass::DEFAULT_ATTACHMENTDATA(VkFormat format,
           0};
 }
 
+VkViewport SngoEngine::Core::Render::RenderPass::Get_ViewPort(float width,
+                                                              float height,
+                                                              float minDepth,
+                                                              float maxDepth)
+{
+  VkViewport viewport{};
+  viewport.width = width;
+  viewport.height = height;
+  viewport.minDepth = minDepth;
+  viewport.maxDepth = maxDepth;
+  return viewport;
+}
+
+VkRect2D SngoEngine::Core::Render::RenderPass::Get_Rect2D(uint32_t width,
+                                                          uint32_t height,
+                                                          int32_t offsetX,
+                                                          int32_t offsetY)
+{
+  VkRect2D rect2D{};
+  rect2D.extent.width = width;
+  rect2D.extent.height = height;
+  rect2D.offset.x = offsetX;
+  rect2D.offset.y = offsetY;
+  return rect2D;
+}
+
+//===========================================================================================================================
+// EngineRenderPass
+//===========================================================================================================================
+
 void SngoEngine::Core::Render::RenderPass::EngineRenderPass::creator(
     const Device::LogicalDevice::EngineDevice* _device,
     const std::vector<VkSubpassDependency>& _dependency,
