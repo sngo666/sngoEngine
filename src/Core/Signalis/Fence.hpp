@@ -4,6 +4,8 @@
 
 #include "src/Core/Device/LogicalDevice.hpp"
 
+#define DEFAULT_FENCE_TIMEOUT 100000000000
+
 namespace SngoEngine::Core::Siganlis
 {
 

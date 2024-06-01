@@ -42,6 +42,10 @@ struct EngineDescriptorSetLayout
   {
     creator(_device, args...);
   }
+  VkDescriptorSetLayout operator()() const
+  {
+    return layout;
+  }
   ~EngineDescriptorSetLayout()
   {
     destroyer();

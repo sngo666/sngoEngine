@@ -79,14 +79,10 @@ struct ImageSubresourceRange_Info : public VkImageSubresourceRange
   }
   explicit ImageSubresourceRange_Info(VkImageAspectFlags _aspectMask,
                                       uint32_t _baseMipLevel = 0,
-                                      uint32_t _levelCount = 1,
+                                      uint32_t _mipLevel = 1,
                                       uint32_t _baseArrayLayer = 0,
                                       uint32_t _layerCount = 1)
-      : VkImageSubresourceRange(_aspectMask,
-                                _baseMipLevel,
-                                _levelCount,
-                                _baseArrayLayer,
-                                _layerCount)
+      : VkImageSubresourceRange(_aspectMask, _baseMipLevel, _mipLevel, _baseArrayLayer, _layerCount)
   {
   }
 };
@@ -412,6 +408,23 @@ struct PipelinePreparation_Info
   VkPipelineDepthStencilStateCreateInfo depth_stencil;
 
   VkPipelineColorBlendStateCreateInfo color_blend;
+};
+
+struct FenceCreate_Info : VkFenceCreateInfo
+{
+  FenceCreate_Info() : VkFenceCreateInfo()
+  {
+    sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    flags = 0;
+    pNext = nullptr;
+  }
+
+  explicit FenceCreate_Info(VkFenceCreateFlags _flags = 0) : VkFenceCreateInfo()
+  {
+    sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    flags = _flags;
+    pNext = nullptr;
+  }
 };
 
 struct QueueFamilyIndices

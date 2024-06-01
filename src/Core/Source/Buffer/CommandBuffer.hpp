@@ -32,6 +32,10 @@ struct EngineCommandPool
   {
     creator(_device, args...);
   }
+  VkCommandPool operator()() const
+  {
+    return command_pool;
+  }
   ~EngineCommandPool()
   {
     destroyer();
@@ -99,7 +103,8 @@ VkCommandBuffer Get_OneTimeSubimit_CommandBuffer(VkDevice logical_device,
 void End_OneTimeSubimit_CommandBuffer(VkDevice logical_device,
                                       VkCommandPool command_pool,
                                       VkCommandBuffer command_buffer,
-                                      VkQueue queue);
+                                      VkQueue queue,
+                                      bool _free = true);
 
 struct EngineOnceCommandBuffer
 {
@@ -115,6 +120,10 @@ struct EngineOnceCommandBuffer
   void init(const Device::LogicalDevice::EngineDevice* _device, Args... args)
   {
     creator(_device, args...);
+  }
+  VkCommandBuffer operator()() const
+  {
+    return command_buffer;
   }
   ~EngineOnceCommandBuffer()
   {

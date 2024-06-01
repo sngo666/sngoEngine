@@ -61,6 +61,7 @@ file(GLOB SOURCES *.cpp
                   src/Core/Utils/*.cpp
                   src/Core/Utils/ColorSpace/*.cpp
                   src/Core/Utils/PBRT/*.cpp
+                  src/Core/Utils/RayTracing/*.cpp
                   src/Core/Signalis/*.cpp
                   src/GLFWEXT/*.cpp
                   src/IMGUI/include/*.cpp

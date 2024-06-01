@@ -108,6 +108,18 @@ VkSpecializationInfo SngoEngine::Core::Source::Pipeline::Get_SpecializationInfo(
   return specializationInfo;
 }
 
+VkPushConstantRange SngoEngine::Core::Source::Pipeline::Get_PushConstantRange(
+    VkShaderStageFlags stageFlags,
+    uint32_t size,
+    uint32_t offset)
+{
+  VkPushConstantRange pushConstantRange{};
+  pushConstantRange.stageFlags = stageFlags;
+  pushConstantRange.offset = offset;
+  pushConstantRange.size = size;
+  return pushConstantRange;
+}
+
 //===========================================================================================================================
 // EnginePipelineLayout
 //===========================================================================================================================

@@ -8,6 +8,7 @@
 #include "src/Core/Device/LogicalDevice.hpp"
 #include "src/Core/Render/FrameBuffer.hpp"
 #include "src/Core/Render/RenderPass.hpp"
+#include "src/Core/Source/Buffer/CommandBuffer.hpp"
 #include "src/Core/Source/Buffer/Descriptor.hpp"
 #include "src/Core/Source/Image/Image.hpp"
 #include "src/Core/Source/Image/ImageVIew.hpp"
@@ -58,7 +59,9 @@ struct EngineFrameBufferAttachment
             VkImageUsageFlagBits _usage,
             VkExtent2D _extent,
             VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT,
-            uint32_t _mipmap = 1);
+            uint32_t _mipmap = 1,
+            uint32_t _arraylayers = 1,
+            VkImageCreateFlags _flags = 0);
   void destroyer();
 };
 
@@ -189,6 +192,8 @@ struct EngineShadowMap_RenderPass
   Render::RenderPass::EngineRenderPass renderpass{};
   Image::EngineSampler sampler{};
 
+  VkDescriptorImageInfo shadowMap_descriptor;
+
   Core::Source::Descriptor::EngineDescriptorSetLayout SM_setlayout;
   struct
   {
@@ -224,6 +229,100 @@ struct EngineShadowMap_RenderPass
                           std::vector<VkPipelineShaderStageCreateInfo>& _offscreen_stage,
                           VkPipelineVertexInputStateCreateInfo v_input,
                           const VkAllocationCallbacks* alloc = nullptr);
+};
+
+//===========================================================================================================================
+// EngineBRDF_RenderPass
+//===========================================================================================================================
+
+struct EngineBRDF_RenderPass
+{
+  uint32_t dim;
+  Buffer::EngineCommandPool cmd_pool;
+
+  EngineFrameBufferAttachment attachment_lutBRDF{};
+  Image::EngineSampler sampler{};
+
+  Render::RenderPass::EngineRenderPass renderpass{};
+  Render::EngineFrameBuffer framebuffer{};
+
+  Core::Source::Descriptor::EngineDescriptorSetLayout setlayout;
+  Core::Source::Descriptor::EngineDescriptorSet set;
+
+  Pipeline::EnginePipelineLayout pipeline_layout;
+  Pipeline::EngineGraphicPipeline pipeline;
+
+  Device::LogicalDevice::EngineDevice* device;
+  VkExtent2D extent{};
+
+  void init(Device::LogicalDevice::EngineDevice* _device,
+            VkExtent2D _extent,
+            const VkAllocationCallbacks* alloc = nullptr);
+
+  void construct_decriptor(Descriptor::EngineDescriptorPool* _pool,
+                           const VkAllocationCallbacks* alloc = nullptr);
+
+  void construct_pipeline(std::vector<VkPipelineShaderStageCreateInfo>& _stage,
+                          VkPipelineVertexInputStateCreateInfo v_input,
+                          const VkAllocationCallbacks* alloc = nullptr);
+
+  void render();
+
+  void destroyer();
+};
+
+//===========================================================================================================================
+// EngineBRDF_RenderPass
+//===========================================================================================================================
+
+struct Block_IrradianceCube
+{
+  glm::mat4 mvp{};
+  // Sampling deltas
+  float deltaPhi = (2.0f * float(M_PI)) / 180.0f;
+  float deltaTheta = (0.5f * float(M_PI)) / 64.0f;
+};
+
+struct EngineIrradianceCube_RenderPass
+{
+  uint32_t dim;
+  uint32_t numMips;
+
+  EngineFrameBufferAttachment attachment_CubeMap{};
+  EngineFrameBufferAttachment attachment_Offscreen{};
+
+  VkDescriptorImageInfo CubeMap_descriptor;
+
+  Buffer::EngineCommandPool cmd_pool;
+
+  Image::EngineSampler sampler{};
+
+  Render::RenderPass::EngineRenderPass renderpass{};
+  // Render::EngineFrameBuffer framebuffer{};
+  Render::EngineFrameBuffer framebuffer_offscreen{};
+
+  Core::Source::Descriptor::EngineDescriptorSetLayout setlayout;
+  Core::Source::Descriptor::EngineDescriptorSet set;
+
+  Pipeline::EnginePipelineLayout pipeline_layout;
+  Pipeline::EngineGraphicPipeline pipeline;
+
+  VkExtent2D extent{};
+  Device::LogicalDevice::EngineDevice* device;
+
+  void init(Device::LogicalDevice::EngineDevice* _device,
+            VkExtent2D _extent,
+            const VkAllocationCallbacks* alloc = nullptr);
+
+  void construct_decriptor(Descriptor::EngineDescriptorPool* _pool,
+                           VkDescriptorImageInfo _img_descriptor,
+                           const VkAllocationCallbacks* alloc = nullptr);
+
+  void construct_pipeline(std::vector<VkPipelineShaderStageCreateInfo>& _stage,
+                          VkPipelineVertexInputStateCreateInfo v_input,
+                          const VkAllocationCallbacks* alloc = nullptr);
+
+  void render(void draw_fn(void));
 };
 
 }  // namespace SngoEngine::Core::Source::RenderPipeline

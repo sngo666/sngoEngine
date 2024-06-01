@@ -6,6 +6,10 @@
 #include <cstdint>
 #include <stdexcept>
 
+#include "src/Core/Data.h"
+#include "src/Core/Signalis/Fence.hpp"
+#include "src/Core/Utils/Utils.hpp"
+
 void SngoEngine::Core::Source::Buffer::EngineCommandPool::destroyer()
 {
   if (command_pool != VK_NULL_HANDLE)
@@ -117,7 +121,8 @@ void SngoEngine::Core::Source::Buffer::End_OneTimeSubimit_CommandBuffer(
     VkDevice logical_device,
     VkCommandPool command_pool,
     VkCommandBuffer command_buffer,
-    VkQueue queue)
+    VkQueue queue,
+    bool _free)
 {
   if (command_buffer == VK_NULL_HANDLE)
     return;
@@ -128,8 +133,17 @@ void SngoEngine::Core::Source::Buffer::End_OneTimeSubimit_CommandBuffer(
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers = &command_buffer;
 
-  vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
-  vkQueueWaitIdle(queue);
+  Data::FenceCreate_Info fenceInfo{0};
+  VkFence fence;
+  Utils::Vk_Exception(vkCreateFence(logical_device, &fenceInfo, nullptr, &fence));
+  Utils::Vk_Exception(vkWaitForFences(logical_device, 1, &fence, VK_TRUE, DEFAULT_FENCE_TIMEOUT));
+  Utils::Vk_Exception(vkQueueSubmit(queue, 1, &submitInfo, fence));
+
+  vkDestroyFence(logical_device, fence, nullptr);
+  if (_free)
+    {
+      vkFreeCommandBuffers(logical_device, command_pool, 1, &command_buffer);
+    }
 }
 
 void SngoEngine::Core::Source::Buffer::EngineOnceCommandBuffer::destroyer()
@@ -143,8 +157,8 @@ void SngoEngine::Core::Source::Buffer::EngineOnceCommandBuffer::destroyer()
 
 void SngoEngine::Core::Source::Buffer::EngineOnceCommandBuffer::end_buffer()
 {
-  End_OneTimeSubimit_CommandBuffer(device->logical_device, command_pool, command_buffer, queue);
-  destroyer();
+  End_OneTimeSubimit_CommandBuffer(
+      device->logical_device, command_pool, command_buffer, queue, true);
 }
 
 void SngoEngine::Core::Source::Buffer::EngineOnceCommandBuffer::creator(

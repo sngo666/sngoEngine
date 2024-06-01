@@ -99,8 +99,10 @@ struct EngineImage
   {
     creator(_device, args...);
   }
-  template <typename U>
-  U& operator=(U&) = delete;
+  VkImage operator()() const
+  {
+    return image;
+  }
   ~EngineImage()
   {
     destroyer();

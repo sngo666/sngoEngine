@@ -35,6 +35,10 @@ VkSpecializationInfo Get_SpecializationInfo(uint32_t mapEntryCount,
 
 VkSpecializationMapEntry Get_SpecMapEntry(uint32_t constantID, uint32_t offset, size_t size);
 
+VkPushConstantRange Get_PushConstantRange(VkShaderStageFlags stageFlags,
+                                          uint32_t size,
+                                          uint32_t offset = 0);
+
 //===========================================================================================================================
 // EnginePipelineLayout
 //===========================================================================================================================
